@@ -891,32 +891,164 @@ class FlasherApp:
             self.root.after(0, self.stop_bluetooth_qc)
 
     async def select_bluetooth_device(self, devices):
-        """Select a Bluetooth device from the scanned list"""
-        # Less strict device selection - try to find DinoCore devices first
-        for device in devices:
-            if device.name and 'dino' in device.name.lower():
-                self.log_queue.put(f"📱 Selected DinoCore device: {device.name} ({device.address})")
-                return device
+        """Show device selection dialog and let user choose"""
+        # Use asyncio to show the dialog in the main thread
+        device_result = {'selected_device': None}
 
-        # Then try QA devices
-        for device in devices:
-            if device.name and 'qa' in device.name.lower():
-                self.log_queue.put(f"📱 Selected QA device: {device.name} ({device.address})")
-                return device
+        def show_device_dialog():
+            # Create a new window for device selection
+            dialog = tk.Toplevel(self.root)
+            dialog.title(_("Select Bluetooth Device"))
+            dialog.geometry("500x400")
+            dialog.configure(bg=self.colors['bg'])
+            dialog.transient(self.root)  # Make it modal
+            dialog.grab_set()  # Block interaction with main window
 
-        # Then try ESP devices
-        for device in devices:
-            if device.name and ('esp' in device.name.lower() or 'bt' in device.name.lower()):
-                self.log_queue.put(f"📱 Selected ESP/BT device: {device.name} ({device.address})")
-                return device
+            # Center the dialog
+            dialog.update_idletasks()
+            x = (dialog.winfo_screenwidth() - dialog.winfo_width()) // 2
+            y = (dialog.winfo_screenheight() - dialog.winfo_height()) // 2
+            dialog.geometry(f"+{x}+{y}")
 
-        # If no preferred device found, return the first available device
-        if devices:
-            device = devices[0]
-            self.log_queue.put(f"📱 Using first available device: {device.name or 'Unknown'} ({device.address})")
-            return device
+            # Header
+            header_frame = tk.Frame(dialog, bg=self.colors['header_bg'], height=50)
+            header_frame.pack(fill=tk.X, padx=0, pady=0)
+            header_frame.pack_propagate(False)
 
-        return None
+            tk.Label(header_frame, text="📱 " + _("Select Bluetooth Device"),
+                    font=("Segoe UI", 14, "bold"), bg=self.colors['header_bg'],
+                    fg=self.colors['text']).pack(pady=10)
+
+            # Device list frame
+            list_frame = tk.Frame(dialog, bg=self.colors['bg'])
+            list_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
+
+            # Create a frame for the list and scrollbar
+            list_container = tk.Frame(list_frame, bg=self.colors['bg'])
+            list_container.pack(fill=tk.BOTH, expand=True)
+
+            # Canvas and scrollbar for scrolling
+            canvas = tk.Canvas(list_container, bg=self.colors['bg'], highlightthickness=0)
+            scrollbar = tk.Scrollbar(list_container, orient="vertical", command=canvas.yview)
+            scrollable_frame = tk.Frame(canvas, bg=self.colors['bg'])
+
+            scrollable_frame.bind(
+                "<Configure>",
+                lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+            )
+
+            canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+            canvas.configure(yscrollcommand=scrollbar.set)
+
+            # Pack canvas and scrollbar
+            canvas.pack(side="left", fill="both", expand=True)
+            scrollbar.pack(side="right", fill="y")
+
+            # Mouse wheel scrolling
+            def _on_mousewheel(event):
+                canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+            # Variables for selection
+            selected_device_var = tk.StringVar()
+
+            # Create radio buttons for each device
+            for i, device in enumerate(devices):
+                device_frame = tk.Frame(scrollable_frame, bg=self.colors['bg'])
+                device_frame.pack(fill=tk.X, pady=5, padx=10)
+
+                # Device info
+                device_name = device.name or "Unknown Device"
+                device_addr = device.address
+
+                # Radio button for selection
+                radio_btn = tk.Radiobutton(
+                    device_frame,
+                    text=f"{device_name} ({device_addr})",
+                    variable=selected_device_var,
+                    value=f"{i}",
+                    font=("Segoe UI", 10),
+                    bg=self.colors['bg'],
+                    fg=self.colors['text'],
+                    selectcolor=self.colors['highlight'],
+                    anchor="w"
+                )
+                radio_btn.pack(anchor="w", fill=tk.X)
+
+                # Add some styling
+                if 'dino' in device_name.lower():
+                    radio_btn.config(font=("Segoe UI", 10, "bold"), fg=self.colors['success_btn'])
+                elif 'qa' in device_name.lower():
+                    radio_btn.config(font=("Segoe UI", 10, "italic"), fg=self.colors['warning_btn'])
+
+            # Pre-select first device
+            if devices:
+                selected_device_var.set("0")
+
+            # Button frame
+            button_frame = tk.Frame(dialog, bg=self.colors['bg'])
+            button_frame.pack(fill=tk.X, padx=20, pady=10)
+
+            def on_select():
+                try:
+                    selected_index = int(selected_device_var.get())
+                    device_result['selected_device'] = devices[selected_index]
+                    dialog.destroy()
+                except (ValueError, IndexError):
+                    pass
+
+            def on_cancel():
+                device_result['selected_device'] = None
+                dialog.destroy()
+
+            # Buttons
+            select_btn = tk.Button(
+                button_frame,
+                text=_("✅ Select Device"),
+                command=on_select,
+                font=("Segoe UI", 11, "bold"),
+                bg=self.colors['success_btn'],
+                fg=self.colors['bg'],
+                relief=tk.FLAT,
+                padx=20,
+                pady=8
+            )
+            select_btn.pack(side=tk.RIGHT, padx=(10, 0))
+
+            cancel_btn = tk.Button(
+                button_frame,
+                text=_("❌ Cancel"),
+                command=on_cancel,
+                font=("Segoe UI", 11),
+                bg=self.colors['prod_btn'],
+                fg=self.colors['bg'],
+                relief=tk.FLAT,
+                padx=20,
+                pady=8
+            )
+            cancel_btn.pack(side=tk.RIGHT)
+
+            # Wait for dialog to close
+            self.root.wait_window(dialog)
+
+        # Show dialog in main thread
+        self.root.after(0, show_device_dialog)
+
+        # Wait for user selection (with timeout)
+        timeout = 30  # 30 seconds timeout
+        start_time = time.time()
+
+        while device_result['selected_device'] is None and (time.time() - start_time) < timeout:
+            await asyncio.sleep(0.1)
+
+        selected_device = device_result['selected_device']
+
+        if selected_device:
+            self.log_queue.put(f"📱 User selected device: {selected_device.name or 'Unknown'} ({selected_device.address})")
+        else:
+            self.log_queue.put("❌ User cancelled device selection or timed out")
+
+        return selected_device
 
     def display_test_results(self, results):
         """Display QC test results in a formatted way"""
