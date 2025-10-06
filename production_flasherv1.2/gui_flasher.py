@@ -568,9 +568,15 @@ class FlasherApp:
             messagebox.showerror(_("Error"), _("Invalid version format. Please use format X.Y.Z (e.g., 1.9.1)"))
 
     def show_mode_buttons(self):
+        # Hide stop button and show main buttons
         self.stop_button.pack_forget()
-        self.prod_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
-        self.test_button.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(10, 0))
+
+        # Ensure bottom row is properly arranged (Bluetooth QC at left, Stop at right)
+        self.bt_qc_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
+        self.stop_button.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(5, 0))
+
+        self.prod_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
+        self.test_button.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(5, 0))
         self.version_entry.config(state='normal')
         self.save_button.config(state='normal')
 
@@ -578,6 +584,9 @@ class FlasherApp:
     def show_stop_button(self):
         self.prod_button.pack_forget()
         self.test_button.pack_forget()
+        self.bt_qc_button.pack_forget()  # Also hide Bluetooth QC button
+
+        # Show only the Stop button taking full width
         self.stop_button.pack(fill=tk.BOTH, expand=True)
         self.version_entry.config(state='disabled')
         self.save_button.config(state='disabled')

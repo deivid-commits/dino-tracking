@@ -333,6 +333,7 @@ def get_bluetooth_qc_tester():
 
 def install_bluetooth_dependencies():
     """Check and install Bluetooth dependencies"""
+    global BLEAK_AVAILABLE
     if not BLEAK_AVAILABLE:
         print(_("Installing Bluetooth dependencies..."))
         try:
@@ -346,7 +347,6 @@ def install_bluetooth_dependencies():
                 # Try to import again
                 try:
                     import bleak
-                    global BLEAK_AVAILABLE
                     BLEAK_AVAILABLE = True
                     print(_("Bluetooth now available"))
                 except ImportError:
