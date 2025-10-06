@@ -401,8 +401,8 @@ def main():
     if args.action == 'check':
         update_info = updater.check_for_updates()
         if update_info:
-            print("
-🎉 Update available!"            print(f"   Version: {update_info['version']}")
+            print("\n🎉 Update available!")
+            print(f"   Version: {update_info['version']}")
             if update_info['changelog']:
                 print(f"   Details: {update_info['changelog'][:200]}...")
         else:
