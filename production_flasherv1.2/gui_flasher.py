@@ -17,6 +17,12 @@ import configparser
 # Import internationalization system
 from i18n_utils import _, translation_manager
 
+# Import local modules
+try:
+    from updater import DinoUpdater
+except ImportError:
+    DinoUpdater = None
+
 # --- Configuration ---
 #TARGET_HW_VERSION = "1.9.0"
 DINOCORE_BASE_URL = "https://dinocore-telemetry-production.up.railway.app/"
@@ -245,42 +251,58 @@ def process_device_thread(log_queue, port, mode, stop_event, target_hw_version):
         log_queue.put(f"--- Processing new device on {port} ---")
         flash_hw_version = None
         if mode == 'testing':
+            log_queue.put(_("Attempting to burn eFuse with version {version}...").format(version=target_hw_version))
             burn_successful = burn_efuse(log_queue, port, target_hw_version)
             if burn_successful:
-                log_queue.put("Burn command succeeded. Verifying by reading back eFuse...")
-                time.sleep(1)
+                log_queue.put(_("Burn command succeeded. Verifying by reading back eFuse..."))
+                time.sleep(2)  # Increased delay for device stabilization
                 read_version = read_efuse_version(log_queue, port)
                 if read_version == target_hw_version:
-                    log_queue.put(f"[OK] Verification successful. Version {read_version} is burned.")
+                    log_queue.put(_("[OK] Verification successful. Version {version} is burned.").format(version=read_version))
                     flash_hw_version = target_hw_version
+                    log_queue.put(_("eFuse burning completed successfully. Starting firmware flash..."))
                 else:
-                    log_queue.put(f"[X] VERIFICATION FAILED. Burned version ({read_version}) does not match target ({target_hw_version}). Stopping.")
+                    log_queue.put(_("[X] VERIFICATION FAILED. Burned version ({burned}) does not match target ({target}). Stopping.").format(burned=read_version, target=target_hw_version))
                     play_sound(ERROR_FREQ, ERROR_DUR)
+                    return
             else:
-                log_queue.put("Burn command failed. Attempting to read existing version...")
+                log_queue.put(_("Burn command failed. Attempting to read existing version..."))
                 existing_version = read_efuse_version(log_queue, port)
                 if existing_version:
-                    log_queue.put(f"Proceeding with existing version: {existing_version}")
+                    log_queue.put(_("Proceeding with existing version: {version}").format(version=existing_version))
                     flash_hw_version = existing_version
                 else:
-                    log_queue.put(f"[X] Could not read existing version after burn failure. Stopping.")
+                    log_queue.put(_("[X] Could not read existing version after burn failure. Stopping."))
                     play_sound(ERROR_FREQ, ERROR_DUR)
+                    return
         elif mode == 'production':
-            log_queue.put("Production mode: Reading eFuse...")
+            log_queue.put(_("Production mode: Reading eFuse..."))
             existing_version = read_efuse_version(log_queue, port)
             if existing_version:
                 flash_hw_version = existing_version
+                log_queue.put(_("Found eFuse version: {version}. Starting firmware flash...").format(version=existing_version))
             else:
-                log_queue.put("[X] PRODUCTION FAILED: No eFuse version found. Please run device through Testing Mode first.")
+                log_queue.put(_("[X] PRODUCTION FAILED: No eFuse version found. Please run device through Testing Mode first."))
                 play_sound(ERROR_FREQ, ERROR_DUR)
-        
+                return
+
+        # If we have a firmware version to flash, proceed with flashing
         if flash_hw_version:
+            log_queue.put(_("-- Starting {mode} flash for HW {hardware_version} on {port} --").format(
+                mode=mode.capitalize(), hardware_version=flash_hw_version, port=port))
             flash_ok = flash_device(log_queue, port, mode, flash_hw_version)
             if flash_ok:
+                log_queue.put(_("Flash completed successfully. Starting serial monitor..."))
                 serial_monitor_thread(log_queue, port, stop_event)
+            else:
+                log_queue.put(_("[X] Flash failed. Unable to complete device programming."))
+                play_sound(ERROR_FREQ, ERROR_DUR)
+        else:
+            log_queue.put(_("[X] No valid hardware version found. Cannot proceed with flash."))
+            play_sound(ERROR_FREQ, ERROR_DUR)
 
     except Exception as e:
-        log_queue.put(f"!!!!!!!!!! UNEXPECTED ERROR in device processing thread !!!!!!!!!!!")
+        log_queue.put("!!!!!!!!!! UNEXPECTED ERROR in device processing thread !!!!!!!!!!!")
         log_queue.put(f"ERROR: {e}")
         log_queue.put(traceback.format_exc() + "\n")
         play_sound(ERROR_FREQ, ERROR_DUR)
@@ -351,17 +373,16 @@ class FlasherApp:
         tk.Label(title_frame, text="v1.2.0", font=("Segoe UI", 10), bg=self.colors['header_bg'],
                 fg=self.colors['log_text']).pack(side=tk.LEFT, padx=(10, 0))
 
-        # Language selector
-        self.language_var = tk.StringVar(value=translation_manager.get_current_language().upper())
-        language_frame = tk.Frame(header_content, bg=self.colors['header_bg'])
-        language_frame.pack(side=tk.RIGHT, padx=(10, 0))
-
-        tk.Label(language_frame, text="🌐", font=("Segoe UI", 12), bg=self.colors['header_bg']).pack(side=tk.LEFT, padx=(0, 5))
-        language_combo = ttk.Combobox(language_frame, textvariable=self.language_var,
-                                     values=['EN', 'ZH_CN', 'ZH_TW'], state='readonly', width=6,
-                                     font=("Segoe UI", 9))
-        language_combo.pack(side=tk.LEFT)
-        language_combo.bind('<<ComboboxSelected>>', self.change_language)
+        # Language cycle button
+        lang_names = {'en': 'EN', 'zh_CN': '简中', 'zh_TW': '繁中'}
+        current_lang = translation_manager.get_current_language()
+        self.language_button = tk.Button(header_content,
+                                        text=f"🌐 {lang_names.get(current_lang, 'EN')}",
+                                        font=("Segoe UI", 9, "bold"),
+                                        bg=self.colors['header_bg'], fg=self.colors['text'],
+                                        relief=tk.FLAT, borderwidth=0,
+                                        command=self.cycle_language)
+        self.language_button.pack(side=tk.RIGHT, padx=(10, 0))
 
         # Connection status indicator
         self.connection_label = tk.Label(header_content, text=_("🔗 SERVER ONLINE"),
@@ -374,7 +395,7 @@ class FlasherApp:
         content_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
 
         # Configuration section
-        config_frame = tk.LabelFrame(content_frame, text=" ⚙️ Configuration ", font=("Segoe UI", 11, "bold"),
+        config_frame = tk.LabelFrame(content_frame, text=f" ⚙️ {_('Configuration')} ", font=("Segoe UI", 11, "bold"),
                                     bg=self.colors['frame_bg'], fg=self.colors['text'],
                                     relief=tk.GROOVE, borderwidth=2)
         config_frame.pack(fill=tk.X, pady=(0, 15))
@@ -382,29 +403,40 @@ class FlasherApp:
         config_inner = tk.Frame(config_frame, bg=self.colors['frame_bg'])
         config_inner.pack(fill=tk.X, padx=15, pady=10)
 
-        tk.Label(config_inner, text="🎯 Target HW Version:", font=("Segoe UI", 12, "bold"),
+        tk.Label(config_inner, text=_("🎯 Target HW Version:"), font=("Segoe UI", 12, "bold"),
                 bg=self.colors['frame_bg'], fg=self.colors['text']).pack(side=tk.LEFT)
         self.version_entry = tk.Entry(config_inner, textvariable=self.hw_version_var,
                                      font=("Consolas", 12), width=15, bg=self.colors['entry_bg'],
                                      fg=self.colors['entry_fg'], insertbackground=self.colors['text'],
                                      relief=tk.FLAT, borderwidth=1)
         self.version_entry.pack(side=tk.LEFT, padx=(15, 10))
-        self.save_button = tk.Button(config_inner, text="💾 Save Version", font=("Segoe UI", 10, "bold"),
+        self.save_button = tk.Button(config_inner, text=_("💾 Save Version"), font=("Segoe UI", 10, "bold"),
                                     bg=self.colors['success_btn'], fg=self.colors['bg'],
                                     command=self.save_hw_version, relief=tk.FLAT, padx=15)
-        self.save_button.pack(side=tk.LEFT)
+        self.save_button.pack(side=tk.LEFT, padx=(0, 10))
+
+        # Update button (only if updater is available)
+        if DinoUpdater is not None:
+            self.update_button = tk.Button(config_inner, text=_("🔄 Check Updates"), font=("Segoe UI", 10, "bold"),
+                                          bg=self.colors['warning_btn'], fg=self.colors['bg'],
+                                          command=self.check_for_updates, relief=tk.FLAT, padx=15)
+            self.update_button.pack(side=tk.LEFT)
+        else:
+            tk.Label(config_inner, text=_("🔄 Auto-update system not available"), font=("Segoe UI", 9),
+                    bg=self.colors['frame_bg'], fg=self.colors['log_text']).pack(side=tk.LEFT, padx=(10, 0))
 
         # Status and control section
-        status_frame = tk.LabelFrame(content_frame, text=" 🎮 Control Panel ", font=("Segoe UI", 11, "bold"),
+        status_frame = tk.LabelFrame(content_frame, text=f" 🎮 {_('Control Panel')} ", font=("Segoe UI", 11, "bold"),
                                     bg=self.colors['frame_bg'], fg=self.colors['text'],
                                     relief=tk.GROOVE, borderwidth=2)
         status_frame.pack(fill=tk.X, pady=(0, 15))
+        self.status_frame = status_frame  # Store reference for progress bar
 
         status_inner = tk.Frame(status_frame, bg=self.colors['frame_bg'])
         status_inner.pack(fill=tk.X, padx=15, pady=10)
 
         # Status display
-        self.status_label = tk.Label(status_inner, text="▶️  SELECT A MODE", font=("Segoe UI", 16, "bold"),
+        self.status_label = tk.Label(status_inner, text=_("▶️  SELECT A MODE"), font=("Segoe UI", 16, "bold"),
                                     bg=self.colors['status_idle'], fg="white", pady=8, padx=15,
                                     relief=tk.FLAT)
         self.status_label.pack(fill=tk.X, pady=(0, 10))
@@ -427,20 +459,20 @@ class FlasherApp:
             'pady': 15
         }
 
-        self.prod_button = tk.Button(self.button_frame, text="🏭 PRODUCTION MODE",
+        self.prod_button = tk.Button(self.button_frame, text=_("🏭 PRODUCTION MODE"),
                                     bg=self.colors['prod_btn'], fg=self.colors['bg'],
                                     command=self.select_mode_production, **button_config)
-        self.test_button = tk.Button(self.button_frame, text="🧪 TESTING MODE",
+        self.test_button = tk.Button(self.button_frame, text=_("🧪 TESTING MODE"),
                                     bg=self.colors['test_btn'], fg=self.colors['bg'],
                                     command=self.select_mode_testing, **button_config)
-        self.stop_button = tk.Button(self.button_frame, text="⏹️  STOP & CHANGE MODE",
+        self.stop_button = tk.Button(self.button_frame, text=_("⏹️  STOP & CHANGE MODE"),
                                     bg=self.colors['stop_btn'], fg=self.colors['bg'],
                                     command=self.stop_scanner, **button_config)
 
         self.show_mode_buttons()
 
         # Enhanced log section
-        log_frame = tk.LabelFrame(content_frame, text=" 📋 Activity Log ", font=("Segoe UI", 11, "bold"),
+        log_frame = tk.LabelFrame(content_frame, text=f" 📋 {_('Activity Log')} ", font=("Segoe UI", 11, "bold"),
                                  bg=self.colors['frame_bg'], fg=self.colors['text'],
                                  relief=tk.GROOVE, borderwidth=2)
         log_frame.pack(fill=tk.BOTH, expand=True)
@@ -493,9 +525,9 @@ class FlasherApp:
         new_version = self.hw_version_var.get()
         if parse_version(new_version):
             self.config_manager.save_hw_version(new_version)
-            messagebox.showinfo("Success", f"Hardware version saved: {new_version}")
+            messagebox.showinfo(_("Success"), _("Hardware version saved: {version}").format(version=new_version))
         else:
-            messagebox.showerror("Error", "Invalid version format. Please use format X.Y.Z (e.g., 1.9.1)")
+            messagebox.showerror(_("Error"), _("Invalid version format. Please use format X.Y.Z (e.g., 1.9.1)"))
 
     def show_mode_buttons(self):
         self.stop_button.pack_forget()
@@ -547,19 +579,19 @@ class FlasherApp:
         self.root.after(100, self.update_log)
 
     def select_mode_production(self):
-        if messagebox.askokcancel("Warning", "Production mode will NOT burn eFuses and requires devices to be tested first. Continue?"):
+        if messagebox.askokcancel(_("Warning"), _("Production mode will NOT burn eFuses and requires devices to be tested first. Continue?")):
             self.start_scanner("production")
 
     def select_mode_testing(self):
-        if messagebox.askokcancel("Notice", f"Testing mode will attempt to burn HW version {self.hw_version_var.get()} to eFuses. This is irreversible. Continue?"):
+        if messagebox.askokcancel(_("Notice"), _("Testing mode will attempt to burn HW version {version} to eFuses. This is irreversible. Continue?").format(version=self.hw_version_var.get())):
             self.start_scanner("testing")
 
     def start_scanner(self, mode):
         self.show_stop_button()
         if mode == 'production':
-            self.status_label.config(text="ACTIVE MODE: PRODUCTION", bg=self.colors['status_prod'])
+            self.status_label.config(text=_("ACTIVE MODE: PRODUCTION"), bg=self.colors['status_prod'])
         else:
-            self.status_label.config(text="ACTIVE MODE: TESTING", bg=self.colors['status_test'])
+            self.status_label.config(text=_("ACTIVE MODE: TESTING"), bg=self.colors['status_test'])
         self.scanner_stop_event.clear()
         self.log_queue.put(f"--- {mode.upper()} MODE ACTIVATED ---")
         scanner_thread = threading.Thread(target=self.scanner_worker, args=(mode,), daemon=True)
@@ -567,9 +599,9 @@ class FlasherApp:
 
     def stop_scanner(self):
         self.scanner_stop_event.set()
-        self.log_queue.put("\n--- SCANNING STOPPED ---")
-        self.log_queue.put("Please select a new mode.")
-        self.status_label.config(text="SELECT A MODE", bg=self.colors['status_idle'])
+        self.log_queue.put(f"\n--- {_('SCANNING STOPPED')} ---")
+        self.log_queue.put(_("Please select a new mode."))
+        self.status_label.config(text=_("▶️  SELECT A MODE"), bg=self.colors['status_idle'])
         self.show_mode_buttons()
 
     def scanner_worker(self, mode):
@@ -599,20 +631,95 @@ class FlasherApp:
                 self.log_queue.put(f"[X] {_('Error in scanner thread:')} {e}")
                 time.sleep(5)
 
-    def change_language(self, event=None):
-        """Change application language"""
-        selected_lang = self.language_var.get().lower()
-        lang_mapping = {'en': 'en', 'zh_cn': 'zh_CN', 'zh_tw': 'zh_TW'}
+    def cycle_language(self):
+        """Cycle through available languages: EN -> ZH_CN -> ZH_TW -> EN"""
+        current_lang = translation_manager.get_current_language()
+        languages = ['en', 'zh_CN', 'zh_TW']
 
-        if selected_lang in lang_mapping:
-            target_lang = lang_mapping[selected_lang]
-            if translation_manager.set_language(target_lang):
-                # Update all translatable texts in the interface
-                self.update_interface_texts()
-            else:
-                messagebox.showerror("Error", "Failed to change language")
+        try:
+            current_index = languages.index(current_lang)
+            next_index = (current_index + 1) % len(languages)
+        except ValueError:
+            next_index = 1  # Default to zh_CN if current not found
 
-    def update_interface_texts(self):
+        next_lang = languages[next_index]
+
+        if translation_manager.set_language(next_lang):
+            # Update button text
+            lang_names = {'en': 'EN', 'zh_CN': '简中', 'zh_TW': '繁中'}
+            self.language_button.config(text=f"🌐 {lang_names.get(next_lang, 'EN')}")
+
+            # Refresh all UI texts to new language
+            self.update_all_texts()
+        else:
+            messagebox.showerror(_("Error"), _("Failed to change language"))
+
+    def check_for_updates(self):
+        """Check for updates and show results in log"""
+        if DinoUpdater is None:
+            messagebox.showerror(_("Error"), _("Update system is not available"))
+            return
+
+        # Disable the update button during check
+        self.update_button.config(state='disabled', text=_("🔄 Checking..."))
+
+        def update_check_thread():
+            try:
+                updater = DinoUpdater()
+                update_info = updater.check_for_updates()
+
+                if update_info:
+                    # Show update available dialog
+                    changelog = update_info['changelog'][:300] + "..." if len(update_info['changelog']) > 300 else update_info['changelog']
+                    message = _(f"Update available: {update_info['version']}\n\nChanges:\n{changelog}\n\nDo you want to install this update?")
+
+                    # Use after() to show dialog in main thread
+                    def show_update_dialog():
+                        if messagebox.askyesno(_("Update Available"), message):
+                            self.perform_update(update_info)
+                        else:
+                            self.log_queue.put(_("Update cancelled by user"))
+                            self.update_button.config(state='normal', text=_("🔄 Check Updates"))
+
+                    self.root.after(0, show_update_dialog)
+                else:
+                    self.log_queue.put(_("✅ You are using the latest version"))
+                    self.root.after(0, lambda: self.update_button.config(state='normal', text=_("🔄 Check Updates")))
+
+            except Exception as e:
+                self.log_queue.put(_(f"[X] Update check failed: {e}"))
+                self.root.after(0, lambda: self.update_button.config(state='normal', text=_("🔄 Check Updates")))
+
+        # Start update check in background thread
+        thread = threading.Thread(target=update_check_thread, daemon=True)
+        thread.start()
+
+    def perform_update(self, update_info):
+        """Perform the actual update"""
+        # Disable button and show progress
+        self.update_button.config(state='disabled', text=_("⬆️ Updating..."))
+
+        def update_thread():
+            try:
+                updater = DinoUpdater()
+                if updater.update(auto_confirm=True):
+                    self.log_queue.put(_("✅ Update completed! Please restart the application."))
+                    messagebox.showinfo(_("Success"), _("Update completed successfully!\n\nPlease restart the application to use the new version."))
+                else:
+                    self.log_queue.put(_("[X] Update failed or was cancelled"))
+                    messagebox.showerror(_("Error"), _("Update failed. Check the log for details."))
+            except Exception as e:
+                self.log_queue.put(_(f"[X] Update error: {e}"))
+                messagebox.showerror(_("Error"), _("Update failed. Check the log for details."))
+
+            # Re-enable button
+            self.root.after(0, lambda: self.update_button.config(state='normal', text=_("🔄 Check Updates")))
+
+        # Start update in background thread
+        thread = threading.Thread(target=update_thread, daemon=True)
+        thread.start()
+
+    def update_all_texts(self):
         """Update all interface texts after language change"""
         # Update window title
         self.root.title(_(WINDOW_TITLE))
@@ -620,11 +727,11 @@ class FlasherApp:
         # Update title label
         self.title_label.config(text=_("DinoCore Production Flasher"))
 
-        # Update connection status (it will be updated by the monitoring function)
-        # The monitoring will update it with the new translated text
+        # Refresh interface - will be handled by the translation system
+        # Since we use _() calls, they will automatically get new translations
+        # The next time the interface is redrawn, it will show the new language
 
-        # For now, the fixed UI texts are already handled by the initial _
-        # calls. Dynamic content that changes needs to be updated here.
+
 
 if __name__ == "__main__":
     root = tk.Tk()
