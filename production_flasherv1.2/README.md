@@ -15,6 +15,9 @@ The core functionality revolves around `esptool` for flashing firmware, `pyseria
 - **Firmware Management**: Automatic download of latest firmware from DinoCore API
 - **eFuse Management**: Hardware version burning and reading capabilities
 - **Serial Monitoring**: Real-time device communication and debugging
+- **🚀 Auto-Update System**: Automatic updates from GitHub with backup and rollback
+- **📦 Version Management**: Centralized version tracking and changelog
+- **🔍 Update Checks**: On-demand update checks and notifications
 
 ## Project Structure
 
