@@ -14,6 +14,9 @@ import traceback
 import serial
 import configparser
 
+# Import internationalization system
+from i18n_utils import _, translation_manager
+
 # --- Configuration ---
 #TARGET_HW_VERSION = "1.9.0"
 DINOCORE_BASE_URL = "https://dinocore-telemetry-production.up.railway.app/"
@@ -285,7 +288,7 @@ def process_device_thread(log_queue, port, mode, stop_event, target_hw_version):
 class FlasherApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("🦕 DinoCore Production Flasher v1.2.0")
+        self.root.title(_("🦕 DinoCore Production Flasher v1.2.0"))
         self.root.geometry("800x700")
         self.root.resizable(True, True)
 
@@ -340,16 +343,28 @@ class FlasherApp:
         title_frame.pack(side=tk.LEFT)
 
         tk.Label(title_frame, text="🦕", font=("Segoe UI Emoji", 24), bg=self.colors['header_bg'], fg="#f38ba8").pack(side=tk.LEFT, padx=(0, 10))
-        title_label = tk.Label(title_frame, text="DinoCore Production Flasher",
-                              font=("Segoe UI", 18, "bold"), bg=self.colors['header_bg'],
-                              fg=self.colors['text'])
-        title_label.pack(side=tk.LEFT)
+        self.title_label = tk.Label(title_frame, text=_("DinoCore Production Flasher"),
+                                   font=("Segoe UI", 18, "bold"), bg=self.colors['header_bg'],
+                                   fg=self.colors['text'])
+        self.title_label.pack(side=tk.LEFT)
 
         tk.Label(title_frame, text="v1.2.0", font=("Segoe UI", 10), bg=self.colors['header_bg'],
                 fg=self.colors['log_text']).pack(side=tk.LEFT, padx=(10, 0))
 
+        # Language selector
+        self.language_var = tk.StringVar(value=translation_manager.get_current_language().upper())
+        language_frame = tk.Frame(header_content, bg=self.colors['header_bg'])
+        language_frame.pack(side=tk.RIGHT, padx=(10, 0))
+
+        tk.Label(language_frame, text="🌐", font=("Segoe UI", 12), bg=self.colors['header_bg']).pack(side=tk.LEFT, padx=(0, 5))
+        language_combo = ttk.Combobox(language_frame, textvariable=self.language_var,
+                                     values=['EN', 'ZH_CN', 'ZH_TW'], state='readonly', width=6,
+                                     font=("Segoe UI", 9))
+        language_combo.pack(side=tk.LEFT)
+        language_combo.bind('<<ComboboxSelected>>', self.change_language)
+
         # Connection status indicator
-        self.connection_label = tk.Label(header_content, text="🔗 CONNECTED",
+        self.connection_label = tk.Label(header_content, text=_("🔗 SERVER ONLINE"),
                                         font=("Segoe UI", 10), bg=self.colors['success_btn'],
                                         fg=self.colors['bg'], padx=10, pady=2, relief=tk.RAISED)
         self.connection_label.pack(side=tk.RIGHT)
@@ -559,10 +574,10 @@ class FlasherApp:
 
     def scanner_worker(self, mode):
         known_ports = {p.device for p in comports()}
-        self.log_queue.put(f"Ignoring existing ports: {', '.join(known_ports) or 'None'}")
-        self.log_queue.put("Waiting for new devices...")
+        self.log_queue.put(f"{_('Ignoring existing ports:')} {', '.join(known_ports) or 'None'}")
+        self.log_queue.put(_("Waiting for new devices..."))
         target_hw_version = self.hw_version_var.get() # Get version at the start of scanning
-        self.log_queue.put(f"Using Target HW Version: {target_hw_version}")
+        self.log_queue.put(f"{_('Using Target HW Version:')} {target_hw_version}")
 
         while not self.scanner_stop_event.is_set():
             try:
@@ -573,16 +588,43 @@ class FlasherApp:
                     known_ports.add(port_to_flash)
                     process_thread = threading.Thread(target=process_device_thread, args=(self.log_queue, port_to_flash, mode, self.scanner_stop_event, target_hw_version), daemon=True)
                     process_thread.start()
-                
+
                 disconnected_ports = known_ports - current_ports
                 if disconnected_ports:
                     known_ports.difference_update(disconnected_ports)
-                    self.log_queue.put(f"Ports disconnected: {', '.join(disconnected_ports)}")
-                
+                    self.log_queue.put(f"{_('Ports disconnected:')} {', '.join(disconnected_ports)}")
+
                 time.sleep(2)
             except Exception as e:
-                self.log_queue.put(f"[X] Error in scanner thread: {e}")
+                self.log_queue.put(f"[X] {_('Error in scanner thread:')} {e}")
                 time.sleep(5)
+
+    def change_language(self, event=None):
+        """Change application language"""
+        selected_lang = self.language_var.get().lower()
+        lang_mapping = {'en': 'en', 'zh_cn': 'zh_CN', 'zh_tw': 'zh_TW'}
+
+        if selected_lang in lang_mapping:
+            target_lang = lang_mapping[selected_lang]
+            if translation_manager.set_language(target_lang):
+                # Update all translatable texts in the interface
+                self.update_interface_texts()
+            else:
+                messagebox.showerror("Error", "Failed to change language")
+
+    def update_interface_texts(self):
+        """Update all interface texts after language change"""
+        # Update window title
+        self.root.title(_(WINDOW_TITLE))
+
+        # Update title label
+        self.title_label.config(text=_("DinoCore Production Flasher"))
+
+        # Update connection status (it will be updated by the monitoring function)
+        # The monitoring will update it with the new translated text
+
+        # For now, the fixed UI texts are already handled by the initial _
+        # calls. Dynamic content that changes needs to be updated here.
 
 if __name__ == "__main__":
     root = tk.Tk()
