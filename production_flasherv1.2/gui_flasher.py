@@ -13,6 +13,7 @@ import re
 import traceback
 import serial
 import configparser
+import asyncio
 
 # Import internationalization system
 from i18n_utils import _, translation_manager
@@ -22,6 +23,13 @@ try:
     from updater import DinoUpdater
 except ImportError:
     DinoUpdater = None
+
+try:
+    from bluetooth_qc import get_bluetooth_qc_tester, BLEAK_AVAILABLE
+    BT_QC_AVAILABLE = True
+except ImportError:
+    BT_QC_AVAILABLE = False
+    get_bluetooth_qc_tester = None
 
 # --- Configuration ---
 #TARGET_HW_VERSION = "1.9.0"
@@ -459,15 +467,45 @@ class FlasherApp:
             'pady': 15
         }
 
-        self.prod_button = tk.Button(self.button_frame, text=_("🏭 PRODUCTION MODE"),
+        # Create a grid layout for the buttons (2x2 grid)
+        button_container = tk.Frame(self.button_frame, bg=self.colors['frame_bg'])
+        button_container.pack(fill=tk.BOTH, expand=True)
+
+        # Top row
+        top_row = tk.Frame(button_container, bg=self.colors['frame_bg'])
+        top_row.pack(fill=tk.BOTH, expand=True, pady=(0, 5))
+
+        self.prod_button = tk.Button(top_row, text=_("🏭 PRODUCTION MODE"),
                                     bg=self.colors['prod_btn'], fg=self.colors['bg'],
                                     command=self.select_mode_production, **button_config)
-        self.test_button = tk.Button(self.button_frame, text=_("🧪 TESTING MODE"),
+        self.prod_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
+
+        self.test_button = tk.Button(top_row, text=_("🧪 TESTING MODE"),
                                     bg=self.colors['test_btn'], fg=self.colors['bg'],
                                     command=self.select_mode_testing, **button_config)
-        self.stop_button = tk.Button(self.button_frame, text=_("⏹️  STOP & CHANGE MODE"),
+        self.test_button.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(5, 0))
+
+        # Bottom row (Bluetooth QC and Stop)
+        bottom_row = tk.Frame(button_container, bg=self.colors['frame_bg'])
+        bottom_row.pack(fill=tk.BOTH, expand=True, pady=(5, 0))
+
+        # Bluetooth QC button (only if available)
+        if BT_QC_AVAILABLE and BLEAK_AVAILABLE:
+            self.bt_qc_button = tk.Button(bottom_row, text=_("🔵 BLUETOOTH QC"),
+                                        bg='#7b68ee', fg=self.colors['bg'],  # Medium slate blue
+                                        command=self.start_bluetooth_qc, **button_config)
+            self.bt_qc_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
+        else:
+            # Show disabled button if Bluetooth not available
+            self.bt_qc_button = tk.Button(bottom_row, text=_("⚠️  BT UNAVAILABLE"),
+                                        bg='#6c7086', fg=self.colors['bg'],  # Disabled gray
+                                        command=self.bt_not_available, state='disabled', **button_config)
+            self.bt_qc_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
+
+        self.stop_button = tk.Button(bottom_row, text=_("⏹️  STOP & CHANGE MODE"),
                                     bg=self.colors['stop_btn'], fg=self.colors['bg'],
                                     command=self.stop_scanner, **button_config)
+        self.stop_button.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(5, 0))
 
         self.show_mode_buttons()
 
@@ -558,7 +596,24 @@ class FlasherApp:
                     if self.progress_visible:
                         self.progress_bar.pack_forget()
                         self.progress_visible = False
+            elif isinstance(message, dict):
+                # Handle Bluetooth QC log messages (dict format)
+                level = message.get('level', 'info')
+                text = message.get('message', str(message))
+                self.log_view.config(state=tk.NORMAL)
+                if level == 'error':
+                    self.log_view.insert(tk.END, text, "error")
+                elif level == 'warning':
+                    self.log_view.insert(tk.END, text, "warning")
+                elif level == 'success':
+                    self.log_view.insert(tk.END, text, "success")
+                else:
+                    self.log_view.insert(tk.END, text)
+                self.log_view.insert(tk.END, "\n")
+                self.log_view.see(tk.END)
+                self.log_view.config(state=tk.DISABLED)
             else:
+                # Handle regular string messages
                 self.log_view.config(state=tk.NORMAL)
                 # Color-code different types of log messages
                 if "[OK]" in message or "✅" in message or "[SUCCESS]" in message:
@@ -718,6 +773,169 @@ class FlasherApp:
         # Start update in background thread
         thread = threading.Thread(target=update_thread, daemon=True)
         thread.start()
+
+    def start_bluetooth_qc(self):
+        """Start Bluetooth QC testing mode"""
+        if not BT_QC_AVAILABLE or not BLEAK_AVAILABLE:
+            self.bt_not_available()
+            return
+
+        if messagebox.askokcancel(_("Bluetooth QC"),
+                                  _("Start Bluetooth LE quality control testing?\n\n"
+                                    "This will scan for QA-enabled devices and run microphone\n"
+                                    "balance tests via Bluetooth LE.\n\n"
+                                    "Make sure devices are powered on and in range.")):
+            self.start_bluetooth_qc_mode()
+
+    def bt_not_available(self):
+        """Show message when Bluetooth is not available"""
+        messagebox.showerror(_("Bluetooth Not Available"),
+                           _("Bluetooth QC testing is not available on this system.\n\n"
+                             "Required components:\n"
+                             "• bleak package for Bluetooth LE support\n"
+                             "• Compatible Bluetooth adapter\n"
+                             "• Python asyncio support\n\n"
+                             "Please install bleak: pip install bleak"))
+
+    def start_bluetooth_qc_mode(self):
+        """Initialize and start Bluetooth QC testing"""
+        # Update status
+        self.status_label.config(text=_("🔵 BLUETOOTH QC ACTIVE"), bg='#7b68ee')
+
+        # Change button to stop
+        self.bt_qc_button.config(text=_("⏹️  STOP QC"), bg=self.colors['stop_btn'],
+                                command=self.stop_bluetooth_qc)
+
+        # Start Bluetooth QC in background thread
+        self.bt_qc_stop_event = threading.Event()
+
+        def bt_qc_thread():
+            asyncio.run(self.run_bluetooth_qc())
+
+        bt_qc_thread = threading.Thread(target=bt_qc_thread, daemon=True)
+        bt_qc_thread.start()
+
+    def stop_bluetooth_qc(self):
+        """Stop Bluetooth QC testing"""
+        if hasattr(self, 'bt_qc_stop_event'):
+            self.bt_qc_stop_event.set()
+
+        # Reset UI
+        self.status_label.config(text=_("▶️  SELECT A MODE"), bg=self.colors['status_idle'])
+        self.bt_qc_button.config(text=_("🔵 BLUETOOTH QC"), bg='#7b68ee',
+                                command=self.start_bluetooth_qc)
+
+    async def run_bluetooth_qc(self):
+        """Async function to run Bluetooth QC testing"""
+        try:
+            bt_qc_tester = get_bluetooth_qc_tester()
+            bt_qc_tester.set_log_queue(self.log_queue)
+
+            self.log_queue.put("🟦 Starting Bluetooth QC testing mode...")
+
+            # Scan for devices
+            devices = await bt_qc_tester.scan_devices()
+
+            if not devices:
+                self.log_queue.put("❌ No compatible Bluetooth devices found")
+                self.root.after(0, self.stop_bluetooth_qc)
+                return
+
+            # Show device selection dialog
+            selected_device = await self.select_bluetooth_device(devices)
+            if not selected_device:
+                self.log_queue.put("❌ No device selected")
+                self.root.after(0, self.stop_bluetooth_qc)
+                return
+
+            # Connect to device
+            connected = await bt_qc_tester.connect_device(selected_device.address)
+            if not connected:
+                self.log_queue.put("❌ Failed to connect to device")
+                self.root.after(0, self.stop_bluetooth_qc)
+                return
+
+            self.log_queue.put("✅ Connected to Bluetooth device")
+
+            # Run microphone balance test
+            test_result = await bt_qc_tester.run_test(0)  # Test index 0: Mic L/R Balance
+
+            if test_result:
+                # Wait for results (they come via notifications)
+                await asyncio.sleep(15)  # Wait up to 15 seconds for test results
+
+                # Get final results
+                results = bt_qc_tester.get_test_results()
+                if results:
+                    self.display_test_results(results)
+                else:
+                    self.log_queue.put("⚠️ No test results received")
+            else:
+                self.log_queue.put("❌ Failed to run Bluetooth test")
+
+            # Disconnect
+            await bt_qc_tester.disconnect()
+
+        except Exception as e:
+            self.log_queue.put(f"❌ Bluetooth QC error: {e}")
+        finally:
+            self.root.after(0, self.stop_bluetooth_qc)
+
+    async def select_bluetooth_device(self, devices):
+        """Select a Bluetooth device from the scanned list"""
+        # For simplicity, just return the first compatible device
+        # In a full implementation, you'd show a selection dialog
+        for device in devices:
+            if device.name and 'dino' in device.name.lower():
+                self.log_queue.put(f"📱 Selected device: {device.name} ({device.address})")
+                return device
+
+        # If no preferred device found, return the first one
+        if devices:
+            device = devices[0]
+            self.log_queue.put(f"📱 Using device: {device.name or 'Unknown'} ({device.address})")
+            return device
+
+        return None
+
+    def display_test_results(self, results):
+        """Display QC test results in a formatted way"""
+        self.log_queue.put("\n🎯 QA TEST RESULTS:")
+        self.log_queue.put("=" * 50)
+
+        for result in results:
+            status_icon = "✅" if result['status'] == 'pass' else "❌"
+            self.log_queue.put(f"Test: {result['name']}")
+            self.log_queue.put(f"Result: {status_icon} {result['status'].upper()}")
+
+            if 'details' in result:
+                self.log_queue.put(f"Details: {result['details']}")
+
+            if 'evaluation_data' in result:
+                eval_data = result['evaluation_data']
+                if 'rms_L' in eval_data and 'rms_R' in eval_data:
+                    balance = eval_data['rms_L'] / max(eval_data['rms_R'], 0.001)
+                    if balance > 0.9 and balance < 1.1:
+                        balance_status = "Balanced 🎵"
+                    else:
+                        balance_status = "Unbalanced ⚠️"
+                    self.log_queue.put(f"Audio Balance: {balance_status}")
+                    self.log_queue.put(".1f")
+                    self.log_queue.put(".1f")
+
+            self.log_queue.put("-" * 30)
+
+        # Summary
+        pass_count = sum(1 for r in results if r['status'] == 'pass')
+        total_count = len(results)
+        self.log_queue.put(f"Summary: {pass_count}/{total_count} tests passed")
+
+        if pass_count == total_count:
+            self.log_queue.put("🎉 ALL TESTS PASSED - Device approved!")
+        else:
+            self.log_queue.put("⚠️ Some tests failed - Device requires attention")
+
+        self.log_queue.put("=" * 50)
 
     def update_all_texts(self):
         """Update all interface texts after language change"""
