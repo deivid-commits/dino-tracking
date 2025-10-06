@@ -15,38 +15,82 @@ The core functionality revolves around `esptool` for flashing firmware, `pyseria
 - **Firmware Management**: Automatic download of latest firmware from DinoCore API
 - **eFuse Management**: Hardware version burning and reading capabilities
 - **Serial Monitoring**: Real-time device communication and debugging
+- **🔵 Bluetooth QC Testing**: Quality control testing via Bluetooth LE (optional)
 - **🚀 Auto-Update System**: Automatic updates from GitHub with backup and rollback
 - **📦 Version Management**: Centralized version tracking and changelog
 - **🔍 Update Checks**: On-demand update checks and notifications
+- **🌐 Multi-language Support**: English, Simplified Chinese, Traditional Chinese
+- **📊 Advanced Logging**: Color-coded logs with different severity levels
+- **🎨 Modern UI**: Dark theme with intuitive controls and status indicators
 
 ## Project Structure
 
 ```
+production_flasherv1.2/
 ├── dino_console.py          # Interactive CLI for developers
 ├── gui_flasher.py           # GUI application for internal use
 ├── partner_flasher.py       # Simplified GUI for external partners
 ├── auto_flasher.py          # Automated production flashing script
 ├── download_helper.py       # Firmware download utilities
 ├── dino_technician_gui.py   # Technician interface
+├── bluetooth_qc.py          # Bluetooth LE quality control testing
+├── i18n_utils.py           # Internationalization utilities
+├── updater.py              # Auto-update system
+├── auto_updater_launcher.py # Update launcher
 ├── config.ini              # Configuration file
 ├── requirements.txt         # Python dependencies
+├── install_dependencies.bat # Windows dependency installer
+├── install_dependencies.sh  # Linux/Mac dependency installer
 ├── start_gui.bat           # Windows batch file to start GUI
+├── start_gui.sh            # Linux/Mac shell script to start GUI
 ├── start_partner_flasher.bat # Windows batch file to start partner flasher
 ├── DinoPartnerFlasher.spec  # PyInstaller spec file for partner flasher
+├── version.json            # Version and update information
+├── CHANGELOG.md            # Changelog and release notes
+├── INSTALL.md              # Detailed installation instructions
+├── .github/                # GitHub workflows and templates
+│   ├── workflows/
+│   │   └── release.yml     # Automated release workflow
+│   └── release-body.md     # Release template
 └── README.md               # This file
 ```
 
 ## Installation
 
-### Dependencies
+### Quick Setup (Recommended)
+
+#### Windows
+Double-click `install_dependencies.bat` to automatically install all dependencies.
+
+#### Linux/Mac
+Run the installation script:
+```bash
+./install_dependencies.sh
+```
+
+### Manual Installation
 
 The project requires Python and the dependencies listed in `requirements.txt`.
 
-To install the dependencies, run:
+To install the dependencies manually, run:
 
 ```bash
 pip install -r requirements.txt
 ```
+
+#### Required Dependencies
+- `esptool>=4.0.0` - ESP32 flashing tool
+- `pyserial>=3.5` - Serial communication
+- `requests>=2.25.0` - HTTP requests for API communication
+- `bleak>=0.19.0` - Bluetooth LE support for QC testing (optional)
+
+#### Optional: Bluetooth QC Features
+To enable Bluetooth Quality Control testing features, install:
+```bash
+pip install bleak>=0.19.0
+```
+
+Without bleak, the Bluetooth QC button will show as "BT UNAVAILABLE" but all other features will work normally.
 
 ## Configuration
 
@@ -123,6 +167,42 @@ To run the auto flasher:
 ```bash
 python auto_flasher.py
 ```
+
+## Bluetooth QC Testing
+
+The GUI includes an optional Bluetooth Quality Control testing feature that allows testing microphone balance and other quality metrics via Bluetooth LE.
+
+### Bluetooth QC Features
+
+- **Device Scanning**: Automatically scans for QA-enabled DinoCore devices
+- **Microphone Testing**: Tests left/right microphone balance with configurable thresholds
+- **Quality Metrics**: Measures RMS levels and evaluates audio quality
+- **Test Results**: Displays detailed results with PASS/FAIL status
+- **Real-time Monitoring**: Live feedback during testing process
+
+### Enabling Bluetooth QC
+
+1. **Install bleak library**:
+   ```bash
+   pip install bleak>=0.19.0
+   ```
+
+2. **Ensure Bluetooth compatibility**:
+   - Windows: Bluetooth drivers must be installed and working
+   - Linux: bluetoothctl must be available
+   - macOS: Bluetooth must be enabled
+
+3. **In the GUI**:
+   - The "BT UNAVAILABLE" button will change to "🔵 BLUETOOTH QC"
+   - Click to start scanning for QA devices
+   - Follow on-screen instructions for testing
+
+### Bluetooth QC Requirements
+
+- **Hardware**: QA-enabled DinoCore devices with Bluetooth LE
+- **Software**: bleak library installed
+- **Permissions**: Bluetooth access permissions on the system
+- **Range**: Devices must be within Bluetooth range (~10m)
 
 ## Hardware Requirements
 

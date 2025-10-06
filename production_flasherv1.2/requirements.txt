@@ -7,5 +7,9 @@ pyserial>=3.5
 # HTTP requests for API communication with DinoCore
 requests>=2.25.0
 
+# Bluetooth LE support for QC testing (optional)
+bleak>=0.19.0
+
 # Note: The following are built-in Python modules and don't need to be installed:
 # - subprocess, sys, time, os, json, argparse, glob, platform, readline, atexit
+# - tkinter (GUI framework, included with Python)
