@@ -83,11 +83,23 @@ class BluetoothQCTester:
 
             devices = await bleak.BleakScanner.discover(timeout=5.0)
 
-            # Filter devices that might have our QA service
+            # Filter devices - less strict to detect more devices
             qa_devices = []
             for device in devices:
-                if device.name and ('dino' in device.name.lower() or 'qa' in device.name.lower()):
-                    qa_devices.append(device)
+                # Accept any device with a name (not None or empty)
+                if device.name and device.name.strip():
+                    # Include devices that might be DinoCore devices or any Bluetooth device for testing
+                    if ('dino' in device.name.lower() or
+                        'qa' in device.name.lower() or
+                        'esp' in device.name.lower() or
+                        'bt' in device.name.lower() or
+                        len(device.name) > 3):  # Accept devices with names longer than 3 chars
+                        qa_devices.append(device)
+
+            # If no devices match the filter, include all devices as fallback
+            if not qa_devices and devices:
+                self.log('info', _("No devices matched filter, using all available devices"))
+                qa_devices = devices
 
             self.log('info', _("Found {} potential QA devices").format(len(qa_devices)))
             return qa_devices

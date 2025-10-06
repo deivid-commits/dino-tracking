@@ -892,17 +892,28 @@ class FlasherApp:
 
     async def select_bluetooth_device(self, devices):
         """Select a Bluetooth device from the scanned list"""
-        # For simplicity, just return the first compatible device
-        # In a full implementation, you'd show a selection dialog
+        # Less strict device selection - try to find DinoCore devices first
         for device in devices:
             if device.name and 'dino' in device.name.lower():
-                self.log_queue.put(f"📱 Selected device: {device.name} ({device.address})")
+                self.log_queue.put(f"📱 Selected DinoCore device: {device.name} ({device.address})")
                 return device
 
-        # If no preferred device found, return the first one
+        # Then try QA devices
+        for device in devices:
+            if device.name and 'qa' in device.name.lower():
+                self.log_queue.put(f"📱 Selected QA device: {device.name} ({device.address})")
+                return device
+
+        # Then try ESP devices
+        for device in devices:
+            if device.name and ('esp' in device.name.lower() or 'bt' in device.name.lower()):
+                self.log_queue.put(f"📱 Selected ESP/BT device: {device.name} ({device.address})")
+                return device
+
+        # If no preferred device found, return the first available device
         if devices:
             device = devices[0]
-            self.log_queue.put(f"📱 Using device: {device.name or 'Unknown'} ({device.address})")
+            self.log_queue.put(f"📱 Using first available device: {device.name or 'Unknown'} ({device.address})")
             return device
 
         return None
