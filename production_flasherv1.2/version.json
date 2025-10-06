@@ -1,0 +1,15 @@
+{
+  "version": "1.2.0",
+  "last_updated": "2025-10-06T19:16:00Z",
+  "metadata": {
+    "release_type": "major",
+    "features": [
+      "Auto-update system",
+      "GitHub integration",
+      "Backup and rollback functionality"
+    ],
+    "minimum_python_version": "3.7",
+    "supported_platforms": ["Windows", "macOS", "Linux"]
+  },
+  "changelog_summary": "Added automatic update system with GitHub integration, backup/rollback capabilities, and improved CLI interface"
+}

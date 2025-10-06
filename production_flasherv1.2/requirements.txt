@@ -1,0 +1,11 @@
+# ESP32 flashing and communication tools
+esptool>=4.0.0
+
+# Serial communication for device detection and monitoring
+pyserial>=3.5
+
+# HTTP requests for API communication with DinoCore
+requests>=2.25.0
+
+# Note: The following are built-in Python modules and don't need to be installed:
+# - subprocess, sys, time, os, json, argparse, glob, platform, readline, atexit
