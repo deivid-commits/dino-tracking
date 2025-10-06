@@ -285,14 +285,37 @@ def process_device_thread(log_queue, port, mode, stop_event, target_hw_version):
 class FlasherApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Dino Fun Flasher")
-        self.root.geometry("750x650")
+        self.root.title("🦕 DinoCore Production Flasher v1.2.0")
+        self.root.geometry("800x700")
+        self.root.resizable(True, True)
+
+        # Ultra-Modern Dark Theme
         self.colors = {
-            'bg': '#F0F8E8', 'log_bg': '#FDF5E6', 'text': '#36454F',
-            'prod_btn': '#FF6347', 'test_btn': '#4682B4', 'stop_btn': '#6B8E23',
-            'status_prod': '#E57373', 'status_test': '#64B5F6', 'status_idle': '#BDBDBD'
+            'bg': '#1e1e2e',           # Deep dark blue-grey
+            'log_bg': '#2a2a3a',       # Slightly lighter dark
+            'text': '#cdd6f4',         # Light blue-grey text
+            'log_text': '#89b4fa',     # Light blue
+            'header_bg': '#181825',    # Very dark header
+            'prod_btn': '#f38ba8',     # Soft red
+            'test_btn': '#89dceb',     # Soft blue
+            'stop_btn': '#a6e3a1',     # Soft green
+            'success_btn': '#a6e3a1',  # Emerald
+            'warning_btn': '#f9e2af',  # Yellow
+            'status_prod': '#f38ba8',  # Red for active
+            'status_test': '#89dceb',  # Blue for active
+            'status_idle': '#6c7086',  # Grey for idle
+            'status_success': '#a6e3a1', # Green for success
+            'status_warning': '#fab387',  # Orange warning
+            'frame_bg': '#313244',     # Medium grey-blue
+            'entry_bg': '#1e1e2e',     # Same as bg
+            'entry_fg': '#cdd6f4',     # Light text
+            'border': '#f38ba8',       # Red accent
+            'highlight': '#89b4fa'     # Blue accent
         }
+
         self.root.configure(bg=self.colors['bg'])
+        self.root.attributes('-topmost', True)  # Always on top for better UX
+        self.root.after(100, lambda: self.root.attributes('-topmost', False))
         
         self.config_manager = ConfigManager(CONFIG_FILE)
         self.hw_version_var = tk.StringVar(value=self.config_manager.get_hw_version())
@@ -303,33 +326,153 @@ class FlasherApp:
         self.update_log()
 
     def create_widgets(self):
-        main_frame = tk.Frame(self.root, bg=self.colors['bg'])
-        main_frame.pack(padx=15, pady=15, fill=tk.BOTH, expand=True)
+        # Modern header with gradient and branding
+        header_frame = tk.Frame(self.root, bg=self.colors['header_bg'], height=60)
+        header_frame.pack(fill=tk.X, padx=0, pady=0)
+        header_frame.pack_propagate(False)
 
-        # Version Frame
-        version_frame = tk.Frame(main_frame, bg=self.colors['bg'])
-        version_frame.pack(fill=tk.X, pady=(0, 10))
-        tk.Label(version_frame, text="Target HW Version:", font=("Comic Sans MS", 12, "bold"), bg=self.colors['bg']).pack(side=tk.LEFT, padx=(0, 10))
-        self.version_entry = tk.Entry(version_frame, textvariable=self.hw_version_var, font=("Consolas", 12), width=15)
-        self.version_entry.pack(side=tk.LEFT, expand=True, fill=tk.X)
-        self.save_button = tk.Button(version_frame, text="Save Version", font=("Comic Sans MS", 10), command=self.save_hw_version)
-        self.save_button.pack(side=tk.LEFT, padx=(10, 0))
+        # Header content
+        header_content = tk.Frame(header_frame, bg=self.colors['header_bg'])
+        header_content.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
 
-        self.status_label = tk.Label(main_frame, text="SELECT A MODE", font=("Comic Sans MS", 20, "bold"), bg=self.colors['status_idle'], fg="white", pady=10, relief=tk.RAISED, borderwidth=2)
-        self.status_label.pack(fill=tk.X, pady=(10, 10))
-        self.progress_bar = ttk.Progressbar(main_frame, orient='horizontal', length=100, mode='determinate')
-        
-        self.button_frame = tk.Frame(main_frame, bg=self.colors['bg'])
-        self.button_frame.pack(fill=tk.X, pady=10)
-        btn_font = ("Comic Sans MS", 16, "bold")
-        self.prod_button = tk.Button(self.button_frame, text="PRODUCTION MODE", font=btn_font, bg=self.colors['prod_btn'], fg="white", command=self.select_mode_production, height=3, relief=tk.RAISED, borderwidth=4)
-        self.test_button = tk.Button(self.button_frame, text="TESTING MODE", font=btn_font, bg=self.colors['test_btn'], fg="white", command=self.select_mode_testing, height=3, relief=tk.RAISED, borderwidth=4)
-        self.stop_button = tk.Button(self.button_frame, text="STOP & CHANGE MODE", font=btn_font, bg=self.colors['stop_btn'], fg="white", command=self.stop_scanner, height=3, relief=tk.RAISED, borderwidth=4)
-        
+        # Logo and title
+        title_frame = tk.Frame(header_content, bg=self.colors['header_bg'])
+        title_frame.pack(side=tk.LEFT)
+
+        tk.Label(title_frame, text="🦕", font=("Segoe UI Emoji", 24), bg=self.colors['header_bg'], fg="#f38ba8").pack(side=tk.LEFT, padx=(0, 10))
+        title_label = tk.Label(title_frame, text="DinoCore Production Flasher",
+                              font=("Segoe UI", 18, "bold"), bg=self.colors['header_bg'],
+                              fg=self.colors['text'])
+        title_label.pack(side=tk.LEFT)
+
+        tk.Label(title_frame, text="v1.2.0", font=("Segoe UI", 10), bg=self.colors['header_bg'],
+                fg=self.colors['log_text']).pack(side=tk.LEFT, padx=(10, 0))
+
+        # Connection status indicator
+        self.connection_label = tk.Label(header_content, text="🔗 CONNECTED",
+                                        font=("Segoe UI", 10), bg=self.colors['success_btn'],
+                                        fg=self.colors['bg'], padx=10, pady=2, relief=tk.RAISED)
+        self.connection_label.pack(side=tk.RIGHT)
+
+        # Main content area
+        content_frame = tk.Frame(self.root, bg=self.colors['bg'])
+        content_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+
+        # Configuration section
+        config_frame = tk.LabelFrame(content_frame, text=" ⚙️ Configuration ", font=("Segoe UI", 11, "bold"),
+                                    bg=self.colors['frame_bg'], fg=self.colors['text'],
+                                    relief=tk.GROOVE, borderwidth=2)
+        config_frame.pack(fill=tk.X, pady=(0, 15))
+
+        config_inner = tk.Frame(config_frame, bg=self.colors['frame_bg'])
+        config_inner.pack(fill=tk.X, padx=15, pady=10)
+
+        tk.Label(config_inner, text="🎯 Target HW Version:", font=("Segoe UI", 12, "bold"),
+                bg=self.colors['frame_bg'], fg=self.colors['text']).pack(side=tk.LEFT)
+        self.version_entry = tk.Entry(config_inner, textvariable=self.hw_version_var,
+                                     font=("Consolas", 12), width=15, bg=self.colors['entry_bg'],
+                                     fg=self.colors['entry_fg'], insertbackground=self.colors['text'],
+                                     relief=tk.FLAT, borderwidth=1)
+        self.version_entry.pack(side=tk.LEFT, padx=(15, 10))
+        self.save_button = tk.Button(config_inner, text="💾 Save Version", font=("Segoe UI", 10, "bold"),
+                                    bg=self.colors['success_btn'], fg=self.colors['bg'],
+                                    command=self.save_hw_version, relief=tk.FLAT, padx=15)
+        self.save_button.pack(side=tk.LEFT)
+
+        # Status and control section
+        status_frame = tk.LabelFrame(content_frame, text=" 🎮 Control Panel ", font=("Segoe UI", 11, "bold"),
+                                    bg=self.colors['frame_bg'], fg=self.colors['text'],
+                                    relief=tk.GROOVE, borderwidth=2)
+        status_frame.pack(fill=tk.X, pady=(0, 15))
+
+        status_inner = tk.Frame(status_frame, bg=self.colors['frame_bg'])
+        status_inner.pack(fill=tk.X, padx=15, pady=10)
+
+        # Status display
+        self.status_label = tk.Label(status_inner, text="▶️  SELECT A MODE", font=("Segoe UI", 16, "bold"),
+                                    bg=self.colors['status_idle'], fg="white", pady=8, padx=15,
+                                    relief=tk.FLAT)
+        self.status_label.pack(fill=tk.X, pady=(0, 10))
+
+        # Progress bar (hidden initially)
+        progress_frame = tk.Frame(status_inner, bg=self.colors['frame_bg'])
+        # Initialize progress bar but don't show yet
+        self.progress_bar = ttk.Progressbar(status_frame, orient='horizontal', length=100, mode='determinate',
+                                           style="TProgressbar")
+        self.progress_visible = False
+
+        # Action buttons
+        self.button_frame = tk.Frame(status_inner, bg=self.colors['frame_bg'])
+        self.button_frame.pack(fill=tk.X, pady=(10, 0))
+
+        button_config = {
+            'font': ("Segoe UI", 14, "bold"),
+            'relief': tk.FLAT,
+            'borderwidth': 0,
+            'pady': 15
+        }
+
+        self.prod_button = tk.Button(self.button_frame, text="🏭 PRODUCTION MODE",
+                                    bg=self.colors['prod_btn'], fg=self.colors['bg'],
+                                    command=self.select_mode_production, **button_config)
+        self.test_button = tk.Button(self.button_frame, text="🧪 TESTING MODE",
+                                    bg=self.colors['test_btn'], fg=self.colors['bg'],
+                                    command=self.select_mode_testing, **button_config)
+        self.stop_button = tk.Button(self.button_frame, text="⏹️  STOP & CHANGE MODE",
+                                    bg=self.colors['stop_btn'], fg=self.colors['bg'],
+                                    command=self.stop_scanner, **button_config)
+
         self.show_mode_buttons()
-        
-        self.log_view = scrolledtext.ScrolledText(main_frame, font=("Consolas", 11), bg=self.colors['log_bg'], fg=self.colors['text'], relief=tk.SUNKEN, borderwidth=2, state=tk.DISABLED)
-        self.log_view.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
+
+        # Enhanced log section
+        log_frame = tk.LabelFrame(content_frame, text=" 📋 Activity Log ", font=("Segoe UI", 11, "bold"),
+                                 bg=self.colors['frame_bg'], fg=self.colors['text'],
+                                 relief=tk.GROOVE, borderwidth=2)
+        log_frame.pack(fill=tk.BOTH, expand=True)
+
+        log_inner = tk.Frame(log_frame, bg=self.colors['frame_bg'])
+        log_inner.pack(fill=tk.BOTH, expand=True, padx=15, pady=10)
+
+        # Enhanced log with syntax highlighting colors
+        self.log_view = scrolledtext.ScrolledText(
+            log_inner, font=("Fira Code", 10) if self.is_font_available("Fira Code") else ("Consolas", 10),
+            bg=self.colors['log_bg'], fg=self.colors['log_text'],
+            insertbackground=self.colors['highlight'], selectbackground=self.colors['highlight'],
+            relief=tk.FLAT, borderwidth=0, padx=10, pady=5, wrap=tk.WORD, state=tk.DISABLED
+        )
+        self.log_view.pack(fill=tk.BOTH, expand=True)
+
+        # Configure color-coded text tags
+        self.log_view.tag_config("success", foreground=self.colors['success_btn'])
+        self.log_view.tag_config("error", foreground=self.colors['prod_btn'])
+        self.log_view.tag_config("warning", foreground=self.colors['warning_btn'])
+
+        # Start connection monitoring
+        self.update_connection_status()
+
+    def is_font_available(self, font_name):
+        """Check if a font is available on the system"""
+        try:
+            test_label = tk.Label(self.root, font=(font_name, 10))
+            return True
+        except:
+            return False
+
+    def update_connection_status(self):
+        """Monitor and update connection status"""
+        try:
+            # Check if we can reach the DinoCore API
+            response = requests.get("https://dinocore-telemetry-production.up.railway.app/api/status",
+                                  timeout=5)
+            if response.status_code == 200:
+                self.connection_label.config(text="🔗 SERVER ONLINE", bg=self.colors['success_btn'])
+            else:
+                self.connection_label.config(text="⚠️ SERVER ISSUES", bg=self.colors['warning_btn'])
+        except:
+            self.connection_label.config(text="❌ OFFLINE", bg=self.colors['prod_btn'])
+
+        # Update every 30 seconds
+        self.root.after(30000, self.update_connection_status)
 
     def save_hw_version(self):
         new_version = self.hw_version_var.get()
@@ -361,14 +504,31 @@ class FlasherApp:
                 if message[0] == 'progress':
                     self.progress_bar['value'] = message[1]
                 elif message[0] == 'show_progress':
-                    self.progress_bar.pack(fill=tk.X, pady=5)
+                    if not self.progress_visible:
+                        self.progress_bar.pack(in_=self.status_frame, fill=tk.X, pady=5, before=self.button_frame)
+                        self.progress_visible = True
                 elif message[0] == 'hide_progress':
-                    self.progress_bar.pack_forget()
+                    if self.progress_visible:
+                        self.progress_bar.pack_forget()
+                        self.progress_visible = False
             else:
                 self.log_view.config(state=tk.NORMAL)
-                self.log_view.insert(tk.END, message)
+                # Color-code different types of log messages
+                if "[OK]" in message or "✅" in message or "[SUCCESS]" in message:
+                    self.log_view.insert(tk.END, message[:-1], "success")  # Remove newline for tag
+                    self.log_view.insert(tk.END, "\n")  # Add newline after tag
+                elif "[X]" in message or "❌" in message or "[ERROR]" in message or "[FAILED]" in message:
+                    self.log_view.insert(tk.END, message[:-1], "error")  # Remove newline for tag
+                    self.log_view.insert(tk.END, "\n")  # Add newline after tag
+                elif "[!]" in message or "⚠️" in message or "[WARNING]" in message:
+                    self.log_view.insert(tk.END, message[:-1], "warning")  # Remove newline for tag
+                    self.log_view.insert(tk.END, "\n")  # Add newline after tag
+                else:
+                    self.log_view.insert(tk.END, message)
+
                 self.log_view.see(tk.END)
                 self.log_view.config(state=tk.DISABLED)
+
         self.root.after(100, self.update_log)
 
     def select_mode_production(self):
