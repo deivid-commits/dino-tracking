@@ -61,8 +61,16 @@ class DinoConsole:
         
         # Clear firmware cache if hardware version changed (stored in a file)
         self.check_hardware_version_change()
-        
+
         self.setup_readline()
+
+        # Auto-check for updates on startup (optional feature)
+        self.check_updates_on_startup = True  # Can be disabled in future config
+        self.update_notification_showed = False
+        self.update_available_info = None
+
+        if self.check_updates_on_startup and UPDATE_SYSTEM_AVAILABLE:
+            self.background_update_check()
         
     def show_loading_animation(self, message="Processing"):
         """Show a loading animation in a separate thread"""
@@ -1665,10 +1673,211 @@ Typical usage:
         except Exception as e:
             print(f"❌ Error executing command: {e}")
 
+    def background_update_check(self):
+        """Background thread to check for updates automatically"""
+        def check_worker():
+            try:
+                print("\n🔄 Checking for application updates in the background...")
+                updater = DinoUpdater()
+                update_info = updater.check_for_updates()
+
+                if update_info:
+                    self.update_available_info = update_info
+                    self.update_notification_showed = False  # Allow showing notification later
+                    # Don't show notification immediately to avoid cluttering startup
+                    # It will be shown when user interacts with update commands
+                else:
+                    print("✅ Application is up to date")
+
+            except Exception as e:
+                # Silently fail background checks to not disturb startup
+                self.update_available_info = None
+
+        # Start background thread
+        update_thread = threading.Thread(target=check_worker, daemon=True)
+        update_thread.start()
+
+    def show_update_notification(self):
+        """Show update notification if available and not shown yet"""
+        if self.update_available_info and not self.update_notification_showed:
+            update_info = self.update_available_info
+            print(f"\n🎉 Update Available: v{update_info['version']}")
+            print(f"   Release: {update_info['release_data'].get('name', 'New Version')}")
+            if update_info['changelog']:
+                print("   Notes:"                for line in update_info['changelog'][:150].split('\n')[:2]:
+                    if line.strip():
+                        print(f"     {line.strip()}")
+            print("   💡 Run 'update' to install the new version")
+            print()
+            self.update_notification_showed = True
+
+    def parse_command(self, command_line):
+        """Parse command line and execute appropriate function"""
+        if not command_line.strip():
+            return
+
+        # Show update notification on first command if available
+        if not self.update_notification_showed and self.update_available_info:
+            self.show_update_notification()
+
+        parts = command_line.strip().split()
+        command = parts[0].lower()
+        args = parts[1:]
+
+        try:
+            if command in ['help', 'h']:
+                print(self.get_help_text())
+
+            elif command in ['exit', 'quit', 'q']:
+                print("Goodbye! 👋")
+                self.running = False
+
+            elif command in ['devices', 'device', 'd']:
+                self.list_devices()
+
+            elif command in ['check', 'c']:
+                if len(args) < 1:
+                    print("❌ Usage: check <production|testing|update> [port]")
+                    return
+                subcommand = args[0].lower()
+
+                if subcommand in ['production', 'testing']:
+                    if subcommand == 'production':
+                        self.check_firmware()
+                    elif subcommand == 'testing':
+                        self.check_testing_firmware()
+                elif subcommand == 'update':
+                    if not UPDATE_SYSTEM_AVAILABLE:
+                        print("❌ Update system not available")
+                        return
+                    try:
+                        updater = DinoUpdater()
+                        update_info = updater.check_for_updates()
+                        if update_info:
+                            print("🎉 Update available!"
+                            print(f"   Version: {update_info['version']}")
+                            print(f"   Release: {update_info['release_data'].get('name', 'N/A')}")
+                            if update_info['changelog']:
+                                print("   Notes:"
+                                for line in update_info['changelog'][:200].split('\n')[:3]:
+                                    if line.strip():
+                                        print(f"     {line.strip()}")
+                            print("   Run 'update' to install this version")
+                        else:
+                            print("✅ You are running the latest version!")
+                    except Exception as e:
+                        print(f"❌ Error checking for updates: {e}")
+                else:
+                    print(f"❌ Unknown check subcommand: {subcommand}")
+                    print("Available subcommands: production, testing, update"
+
+            elif command in ['read', 'r']:
+                if len(args) < 2:
+                    print("❌ Usage: read efuse <port>")
+                    return
+                subcommand = args[0].lower()
+                port = self.resolve_device(args[1])
+                if not port:
+                    return
+
+                if subcommand == 'efuse':
+                    self.check_efuse(port)
+                else:
+                    print(f"❌ Unknown read subcommand: {subcommand}")
+                    print("Available subcommands: efuse")
+
+            elif command in ['flash', 'f']:
+                if len(args) < 2:
+                    print("❌ Usage: flash <production|testing> <port>")
+                    return
+                subcommand = args[0].lower()
+                port = self.resolve_device(args[1])
+                if not port:
+                    return
+
+                if subcommand == 'production':
+                    print("⚠️  WARNING: Production firmware flashing is IRREVERSIBLE!")
+                    print("   This will overwrite any existing firmware on the device.")
+                    print("   Make sure you have backed up any important data.")
+                    confirm = input("   Type 'YES' to continue: ")
+                    if confirm != 'YES':
+                        print("❌ Production firmware flashing cancelled")
+                        return
+
+                    if not self.require_files():
+                        print("❌ Production firmware not available")
+                        print("   Run 'check production' to download production firmware")
+                        return
+
+                    if self.flash_firmware(port):
+                        print("\nStarting monitor immediately after flash...")
+                        self.open_monitor(port)
+                elif subcommand == 'testing':
+                    if not self.require_testing_files():
+                        print("❌ Testing firmware not available")
+                        print("   Run 'check testing' to download testing firmware")
+                        return
+
+                    if self.flash_testing_firmware(port):
+                        print("\nStarting monitor immediately after flash...")
+                        self.open_monitor(port)
+                else:
+                    print(f"❌ Unknown flash subcommand: {subcommand}")
+                    print("Available subcommands: production, testing")
+
+            elif command in ['burn', 'b']:
+                if len(args) < 2:
+                    print("❌ Usage: burn efuse <port> [--test]")
+                    return
+                subcommand = args[0].lower()
+                port = self.resolve_device(args[1])
+                if not port:
+                    return
+                test_mode = '--test' in args
+
+                if subcommand == 'efuse':
+                    self.burn_board_version(port, test_mode)
+                else:
+                    print(f"❌ Unknown burn subcommand: {subcommand}")
+                    print("Available subcommands: efuse")
+
+            elif command == 'update':
+                if not UPDATE_SYSTEM_AVAILABLE:
+                    print("❌ Update system not available")
+                    return
+                try:
+                    updater = DinoUpdater()
+                    print("🚀 Installing update...")
+                    success = updater.update(auto_confirm=True if '-y' in args else False)
+                    if success:
+                        print("\n✅ Update completed successfully!")
+                        print("🔄 Please restart the application to use the new version")
+                        self.update_available_info = None  # Clear after successful update
+                    else:
+                        print("❌ Update failed or was cancelled")
+                except Exception as e:
+                    print(f"❌ Update error: {e}")
+
+            elif command in ['monitor', 'm']:
+                if len(args) < 1:
+                    print("❌ Usage: monitor <port>")
+                    return
+                port = self.resolve_device(args[0])
+                if not port:
+                    return
+                self.open_monitor(port)
+
+            else:
+                print(f"❌ Unknown command: {command}")
+                print("Type 'help' for available commands")
+
+        except Exception as e:
+            print(f"❌ Error executing command: {e}")
+
     def run(self):
         """Main console loop"""
         self.print_banner()
-        
+
         while self.running:
             try:
                 command = input("============================================================\n\n🦕 dino> ").strip()

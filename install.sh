@@ -100,19 +100,27 @@ $PYTHON_CMD -c "import tkinter; print('✅ tkinter available')" 2>/dev/null || {
 }
 
 echo
+echo "🔧 Setting up executable permissions..."
+chmod +x production_flasherv1.2/start_gui.sh production_flasherv1.2/auto_updater_launcher.py
+echo "✅ Permissions configured"
+
+echo
 echo "🚀 Installation complete!"
 echo
 echo "You can now use DinoCore Production Flasher by running:"
 echo
-echo "  cd production_flasherv1.2"
-echo "  $PYTHON_CMD dino_console.py 1.9.0"
+echo "  Console mode:"
+echo "    cd production_flasherv1.2 && $PYTHON_CMD dino_console.py 1.9.0"
 echo
-echo "For GUI mode:"
-echo "  $PYTHON_CMD gui_flasher.py"
+echo "  GUI mode with auto-updates (recommended):"
+echo "    cd production_flasherv1.2 && ./start_gui.sh"
 echo
-echo "For direct update commands:"
-echo "  cd production_flasherv1.2"
-echo "  $PYTHON_CMD updater.py check"
-echo "  $PYTHON_CMD updater.py update"
+echo "  GUI mode without auto-updates:"
+echo "    cd production_flasherv1.2 && $PYTHON_CMD gui_flasher.py"
+echo
+echo "  Direct update commands:"
+echo "    cd production_flasherv1.2"
+echo "    $PYTHON_CMD updater.py check"
+echo "    $PYTHON_CMD updater.py update"
 echo
 echo "Happy flashing! 🔧⚡"

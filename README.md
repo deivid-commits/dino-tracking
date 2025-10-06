@@ -42,7 +42,7 @@ python dino_console.py 1.9.0
 - **🖼️ GUI Applications**: Multiple graphical interfaces for different use cases
 - **⚡ ESP32-S3 Support**: Full flashing, monitoring, and eFuse management
 - **🔍 Device Detection**: Automatic ESP32 device discovery
-- **🔄 Auto-Updates**: Self-updating from GitHub releases
+- **🔄 Auto-Updates**: Self-updating from GitHub releases (automatic on startup)
 - **💾 Backup/Restore**: Safe update rollback capabilities
 - **🔧 Hardware Security**: eFuse version burning and reading
 - **📡 API Integration**: DinoCore server communication
@@ -73,8 +73,13 @@ python updater.py check          # Check for updates
 python updater.py update         # Install updates
 python updater.py update --yes   # Auto-confirm updates
 
-# GUI applications
-python gui_flasher.py            # Main GUI interface
+# GUI applications (with auto-update)
+start_gui.bat                    # 🆕 Main GUI + Auto-updates on startup (Windows)
+./start_gui.sh                   # 🆕 Main GUI + Auto-updates on startup (Linux/macOS)
+python auto_updater_launcher.py  # Auto-update launcher (all platforms)
+python gui_flasher.py            # Main GUI interface (no auto-update)
+
+# Other GUI applications
 python partner_flasher.py        # Partner interface
 python dino_technician_gui.py    # Technician interface
 
@@ -91,6 +96,7 @@ production_flasherv1.2/           # Main application
 ├── partner_flasher.py           # Partner GUI (standalone executable)
 ├── auto_flasher.py              # Production automation
 ├── updater.py                   # 🆕 Auto-update system
+├── auto_updater_launcher.py     # 🆕 Auto-update launcher (cross-platform)
 ├── version.json                 # 🆕 Version tracking
 ├── config.ini                   # Configuration
 ├── requirements.txt             # Python dependencies
@@ -99,6 +105,10 @@ production_flasherv1.2/           # Main application
 ├── testing_firmware/            # Downloaded firmware
 ├── production_firmware/         # Downloaded firmware
 └── *.py                         # Supporting modules
+
+# Auto-update launchers (by platform)
+start_gui.bat                    # 🆕 Windows: GUI + Auto-update on launch
+start_gui.sh                     # 🆕 Linux/macOS: GUI + Auto-update on launch
 
 .github/workflows/release.yml     # 🆕 CI/CD automation
 install.bat / install.sh          # 🆕 Cross-platform installers
