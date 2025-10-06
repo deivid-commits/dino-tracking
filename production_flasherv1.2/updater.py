@@ -18,7 +18,7 @@ from typing import Optional, Dict, Any
 class DinoUpdater:
     """Auto-update system for DinoCore Production Flasher"""
 
-    def __init__(self, repo_owner="your-github-username", repo_name="dino-production-flasher"):
+    def __init__(self, repo_owner="deivid-commits", repo_name="dino-production-flasher"):
         self.repo_owner = repo_owner
         self.repo_name = repo_name
         self.github_api_url = f"https://api.github.com/repos/{repo_owner}/{repo_name}"
@@ -384,7 +384,7 @@ def main():
                        help='Action to perform')
     parser.add_argument('--yes', '-y', action='store_true',
                        help='Auto-confirm updates')
-    parser.add_argument('--repo', default='your-github-username/dino-production-flasher',
+    parser.add_argument('--repo', default='deivid-commits/dino-production-flasher',
                        help='GitHub repository (owner/repo)')
 
     args = parser.parse_args()

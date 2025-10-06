@@ -1,6 +1,6 @@
 # DinoCore Production Flasher
 
-[![Latest Release](https://img.shields.io/github/v/release/your-github-username/dino-production-flasher)](https://github.com/your-github-username/dino-production-flasher/releases)
+[![Latest Release](https://img.shields.io/github/v/release/deivid-commits/dino-production-flasher)](https://github.com/deivid-commits/dino-production-flasher/releases)
 [![Python Version](https://img.shields.io/badge/python-3.7+-blue)](https://python.org)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
@@ -10,14 +10,14 @@ A comprehensive, **self-updating** Python-based tool suite for flashing and mana
 
 ### Windows
 ```batch
-git clone https://github.com/your-github-username/dino-production-flasher.git
+git clone https://github.com/deivid-commits/dino-production-flasher.git
 cd dino-production-flasher
 install.bat
 ```
 
 ### Linux/macOS
 ```bash
-git clone https://github.com/your-github-username/dino-production-flasher.git
+git clone https://github.com/deivid-commits/dino-production-flasher.git
 cd dino-production-flasher
 chmod +x install.sh && ./install.sh
 ```
@@ -150,7 +150,7 @@ Use the platform-specific installers included in the repository.
 ### 2. Manual Installation
 ```bash
 # Clone repository
-git clone https://github.com/your-github-username/dino-production-flasher.git
+git clone https://github.com/deivid-commits/dino-production-flasher.git
 cd dino-production-flasher
 
 # Install dependencies
@@ -159,7 +159,7 @@ pip install -r requirements.txt
 ```
 
 ### 3. Download Release
-Download the latest release ZIP from [GitHub Releases](https://github.com/your-github-username/dino-production-flasher/releases) and extract.
+Download the latest release ZIP from [GitHub Releases](https://github.com/deivid-commits/dino-production-flasher/releases) and extract.
 
 ## 🔒 Security & Safety
 
@@ -192,8 +192,8 @@ See [CHANGELOG.md](CHANGELOG.md) for complete version history and release notes.
 ## 📞 Support
 
 - **📖 Documentation**: [INSTALL.md](INSTALL.md) - Complete installation guide
-- **🐛 Issues**: [GitHub Issues](https://github.com/your-github-username/dino-production-flasher/issues)
-- **✅ Releases**: [GitHub Releases](https://github.com/your-github-username/dino-production-flasher/releases)
+- **🐛 Issues**: [GitHub Issues](https://github.com/deivid-commits/dino-production-flasher/issues)
+- **✅ Releases**: [GitHub Releases](https://github.com/deivid-commits/dino-production-flasher/releases)
 - **🔄 Changelog**: [CHANGELOG.md](CHANGELOG.md) - Version history
 
 ## 🤝 Contributing
