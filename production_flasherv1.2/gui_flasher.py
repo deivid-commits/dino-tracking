@@ -31,6 +31,14 @@ except ImportError:
     BT_QC_AVAILABLE = False
     get_bluetooth_qc_tester = None
 
+# Firebase database integration (optional)
+try:
+    from firebase_db import get_firebase_db, store_qc_results, store_flash_log
+    FIREBASE_AVAILABLE = True
+except ImportError:
+    FIREBASE_AVAILABLE = False
+    get_firebase_db = None
+
 # --- Configuration ---
 #TARGET_HW_VERSION = "1.9.0"
 DINOCORE_BASE_URL = "https://dinocore-telemetry-production.up.railway.app/"
@@ -877,6 +885,20 @@ class FlasherApp:
                 results = bt_qc_tester.get_test_results()
                 if results:
                     self.display_test_results(results)
+
+                    # Store results in Firebase if available
+                    if FIREBASE_AVAILABLE:
+                        try:
+                            device_info = {
+                                'name': selected_device.name or 'Unknown',
+                                'address': selected_device.address
+                            }
+                            if store_qc_results(device_info, results):
+                                self.log_queue.put("💾 QC results stored in Firebase database")
+                            else:
+                                self.log_queue.put("⚠️ Failed to store QC results in Firebase")
+                        except Exception as e:
+                            self.log_queue.put(f"⚠️ Firebase storage error: {e}")
                 else:
                     self.log_queue.put("⚠️ No test results received")
             else:

@@ -65,6 +65,10 @@ REM Bluetooth LE support (optional but recommended)
 echo    Installing bleak for Bluetooth QC...
 python -m pip install bleak>=0.19.0
 
+REM Firebase support (optional but recommended for data logging)
+echo    Installing firebase-admin for database integration...
+python -m pip install firebase-admin>=6.0.0
+
 echo.
 echo ✅ All dependencies installed successfully!
 echo.

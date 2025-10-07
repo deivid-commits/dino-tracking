@@ -61,6 +61,10 @@ python3 -m pip install requests>=2.25.0
 echo "   Installing bleak for Bluetooth QC..."
 python3 -m pip install bleak>=0.19.0
 
+# Firebase support (optional but recommended for data logging)
+echo "   Installing firebase-admin for database integration..."
+python3 -m pip install firebase-admin>=6.0.0
+
 echo ""
 echo "✅ All dependencies installed successfully!"
 echo ""

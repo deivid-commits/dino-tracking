@@ -92,6 +92,26 @@ pip install bleak>=0.19.0
 
 Without bleak, the Bluetooth QC button will show as "BT UNAVAILABLE" but all other features will work normally.
 
+#### Optional: Firebase Database Integration
+To enable cloud data storage for QC results and flash logs, install:
+```bash
+pip install firebase-admin>=6.0.0
+```
+
+Firebase allows you to:
+- Store QC test results in the cloud
+- Keep historical records of all flash operations
+- Access data from multiple workstations
+- Generate reports and analytics
+
+To set up Firebase:
+1. Run: `python firebase_db.py setup` (or double-click `setup_firebase.bat`)
+2. Follow the instructions to create a Firebase project
+3. Download credentials and place as `firebase-credentials.json`
+4. Run: `python firebase_db.py init` to test the connection
+
+Without firebase-admin, data logging will be disabled but all other features work normally.
+
 ## Configuration
 
 Edit `config.ini` to set the target hardware version:
