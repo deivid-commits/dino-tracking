@@ -31,9 +31,9 @@ except ImportError:
     BT_QC_AVAILABLE = False
     get_bluetooth_qc_tester = None
 
-# Firebase database integration (optional)
+# Firebase database integration with cache (optional)
 try:
-    from firebase_db import get_firebase_db, store_qc_results, store_flash_log
+    from firebase_db import get_firebase_db, store_qc_results, store_flash_log, get_qc_history, get_flash_history
     FIREBASE_AVAILABLE = True
 except ImportError:
     FIREBASE_AVAILABLE = False
@@ -360,9 +360,13 @@ class FlasherApp:
         
         self.config_manager = ConfigManager(CONFIG_FILE)
         self.hw_version_var = tk.StringVar(value=self.config_manager.get_hw_version())
-        
+
         self.log_queue = queue.Queue()
         self.scanner_stop_event = threading.Event()
+
+        # Initialize Firebase and cache system
+        self.initialize_database()
+
         self.create_widgets()
         self.update_log()
 
@@ -550,6 +554,27 @@ class FlasherApp:
             return True
         except:
             return False
+
+    def initialize_database(self):
+        """Initialize Firebase and cache system"""
+        if FIREBASE_AVAILABLE:
+            try:
+                firebase_db = get_firebase_db()
+                self.log_queue.put("🔥 Initializing Firebase and cache system...")
+
+                if firebase_db.initialize():
+                    self.log_queue.put("✅ Firebase and cache system initialized successfully")
+                else:
+                    self.log_queue.put("⚠️ Firebase initialization failed, using cache-only mode")
+
+            except Exception as e:
+                self.log_queue.put(f"⚠️ Database initialization error: {e}")
+                self.log_queue.put("Using offline cache mode")
+        else:
+            self.log_queue.put("⚠️ Firebase not available, using cache-only mode")
+
+        # Add cleanup on window close
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
     def update_connection_status(self):
         """Monitor and update connection status"""
@@ -1071,6 +1096,24 @@ class FlasherApp:
             self.log_queue.put("❌ User cancelled device selection or timed out")
 
         return selected_device
+
+    def on_closing(self):
+        """Handle application shutdown and cache cleanup"""
+        self.log_queue.put("🔄 Shutting down and cleaning up cache...")
+
+        try:
+            # Shutdown cache manager
+            if FIREBASE_AVAILABLE:
+                from cache_manager import get_cache_manager
+                cache = get_cache_manager()
+                cache.shutdown()
+                self.log_queue.put("✅ Cache system shut down cleanly")
+
+        except Exception as e:
+            self.log_queue.put(f"⚠️ Error during shutdown: {e}")
+
+        # Destroy the window
+        self.root.destroy()
 
     def display_test_results(self, results):
         """Display QC test results in a formatted way"""

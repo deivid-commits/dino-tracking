@@ -20,6 +20,7 @@ except ImportError:
     firebase_admin = None
 
 from i18n_utils import _
+from cache_manager import get_cache_manager, init_cache_system, CacheMode
 
 class FirebaseDB:
     """Firebase/Firestore database manager for DinoCore"""
@@ -71,7 +72,9 @@ class FirebaseDB:
             self.db = firestore.client()
             self.initialized = True
 
-            print(_("Firebase initialized successfully"))
+            # Initialize cache system with this Firebase instance
+            init_cache_system(self)
+            print(_("Firebase and cache system initialized successfully"))
             return True
 
         except Exception as e:
@@ -243,12 +246,24 @@ def init_firebase_with_credentials(credentials_path: str = None, project_id: str
     return firebase_db.initialize(credentials_path, project_id)
 
 def store_qc_results(device_info: Dict[str, Any], test_results: List[Dict[str, Any]]) -> bool:
-    """Store QC results in Firebase"""
-    return firebase_db.store_qc_results(device_info, test_results)
+    """Store QC results using cache-first strategy"""
+    cache = get_cache_manager()
+    return cache.store_qc_results(device_info, test_results)
 
 def store_flash_log(device_info: Dict[str, Any], flash_result: Dict[str, Any]) -> bool:
-    """Store flash log in Firebase"""
-    return firebase_db.store_flash_log(device_info, flash_result)
+    """Store flash log using cache-first strategy"""
+    cache = get_cache_manager()
+    return cache.store_flash_log(device_info, flash_result)
+
+def get_qc_history(limit: int = 50) -> List[Dict[str, Any]]:
+    """Get QC history using cache-first strategy"""
+    cache = get_cache_manager()
+    return cache.get_qc_history(limit)
+
+def get_flash_history(limit: int = 50) -> List[Dict[str, Any]]:
+    """Get flash history using cache-first strategy"""
+    cache = get_cache_manager()
+    return cache.get_flash_history(limit)
 
 if __name__ == "__main__":
     # Command line interface for Firebase setup

@@ -75,12 +75,26 @@ temp*/
 tmp*/
 cache/
 
+# DinoCore Cache Directory (Firebase offline cache)
+.dinocore_cache/
+*.dinocore_cache/
+
+# Firebase Credentials (contains sensitive service account keys)
+firebase-credentials.json
+firebase-credentials-template.json
+credentials.json
+firebase-adminsdk*.json
+
 # GitHub Actions artifacts
 .github/workflows/*.log
 
 # Local development
 local/
 development/
+
+# Temporary directories (don't push to remote)
+read_repo/
+temp_source_repo/
 
 # Archives (ZIP, TGZ, etc.)
 *.zip
