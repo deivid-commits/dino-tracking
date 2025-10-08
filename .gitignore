@@ -24,3 +24,9 @@ dist-ssr
 *.sw?
 
 .env
+
+# Temporary directories (don't push to remote)
+temp_source_repo/
+
+# Build output (Vercel builds automatically)
+dist/
