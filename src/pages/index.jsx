@@ -38,48 +38,52 @@ import FirebaseBackup from "./FirebaseBackup";
 
 import WarehouseManagement from "./WarehouseManagement";
 
+import FirebaseTest from "../components/FirebaseTest";
+
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
 
 const PAGES = {
-    
+
     Dashboard: Dashboard,
-    
+
     Components: Components,
-    
+
     Dinosaurs: Dinosaurs,
-    
+
     Sales: Sales,
-    
+
     Search: Search,
-    
+
     BOMManagement: BOMManagement,
-    
+
     Devices: Devices,
-    
+
     DinosaurVersions: DinosaurVersions,
-    
+
     QualityControl: QualityControl,
-    
+
     InventoryManagement: InventoryManagement,
-    
+
     OperatorManagement: OperatorManagement,
-    
+
     OperatorLogin: OperatorLogin,
-    
+
     WIPLoading: WIPLoading,
-    
+
     Shipping: Shipping,
-    
+
     CountdownToChristmas: CountdownToChristmas,
-    
+
     QuickQC: QuickQC,
-    
+
     SlackBotDiagnostics: SlackBotDiagnostics,
-    
+
     FirebaseBackup: FirebaseBackup,
-    
+
     WarehouseManagement: WarehouseManagement,
-    
+
+    FirebaseTest,
+
 }
 
 function _getCurrentPage(url) {
@@ -144,7 +148,9 @@ function PagesContent() {
                 <Route path="/FirebaseBackup" element={<FirebaseBackup />} />
                 
                 <Route path="/WarehouseManagement" element={<WarehouseManagement />} />
-                
+
+                <Route path="/FirebaseTest" element={<FirebaseTest />} />
+
             </Routes>
         </Layout>
     );
