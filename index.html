@@ -232,7 +232,7 @@
                     .select('id')
                     .limit(1);
 
-                if (error && error.message.includes("relation \"warehouses\" does not exist")) {
+                if (error && error.message.includes("does not exist")) {
                     // Esto es un éxito de conexión, aunque la tabla no exista.
                     console.log('✅ Conexión exitosa, aunque la tabla "warehouses" no existe aún.');
                     resultDiv.className = 'result show status-box success';
