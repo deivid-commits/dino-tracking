@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Supabase Test - Fase 1 - v1.1</title>
+    <title>Supabase Test - Fase 1 - v1.2</title>
     <style>
         .version {
             position: absolute;
@@ -172,7 +172,7 @@
     </style>
 </head>
 <body>
-    <div class="version">v1.1</div>
+    <div class="version">v1.2</div>
     <div class="container">
         <h1>⚡ Supabase Test - FASE 1</h1>
         <p class="subtitle">Prueba de Conectividad con Supabase</p>
@@ -244,9 +244,10 @@
                     .select('id')
                     .limit(1);
 
-                if (error && (error.message.includes("does not exist") || error.code === "42P01")) {
+                if (error && (error.message.includes("does not exist") || error.code === "42P01" || error.message.includes("schema cache"))) {
                     // Esto es un éxito de conexión, aunque la tabla no exista.
                     // El código 42P01 es el error estándar de PostgreSQL para "undefined_table".
+                    // "schema cache" es parte del error que estás viendo.
                     console.log('✅ Conexión exitosa, aunque la tabla "warehouses" no existe aún.');
                     resultDiv.className = 'result show status-box success';
                     resultDiv.innerHTML = `
