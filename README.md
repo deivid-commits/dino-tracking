@@ -1,28 +1,22 @@
-# Firebase Basic Test - FASE 1
+# Supabase Basic Test - FASE 1
 
-Proyecto básico para probar conectividad con Firebase.
+Proyecto básico para probar conectividad con Supabase.
 
 ## 🎯 Objetivo
 
 Este es un proyecto mínimo para:
-1. Probar la conexión a Firebase Firestore
-2. Inicializar datos base (warehouse BASE)
-3. Verificar deployment en Vercel
+1. Probar la conexión a Supabase (PostgreSQL)
+2. Verificar deployment en Vercel
 
 ## 📋 Instrucciones
 
-### 1. Configurar Firebase
+### 1. Configuración
 
-1. Ve a [Firebase Console](https://console.firebase.google.com)
-2. Crea un proyecto o selecciona uno existente
-3. Ve a Project Settings → General → Your apps
-4. Agrega una Web App y copia las credenciales
-5. Edita `index.html` y reemplaza las credenciales en `firebaseConfig`
-6. Habilita Firestore Database en tu proyecto Firebase
+Las credenciales de Supabase ya están incluidas en `index.html`. No se necesita configuración adicional para esta prueba inicial.
 
 ### 2. Probar Localmente
 
-Abre `index.html` en tu navegador.
+Abre `index.html` en tu navegador y haz clic en "Probar Conexión a Supabase".
 
 ### 3. Deploy a Vercel
 
@@ -39,15 +33,13 @@ git push -u origin main --force
 # Vercel se auto-deployará desde GitHub
 ```
 
-### 4. Configurar Variables de Entorno en Vercel
+### 4. Variables de Entorno en Vercel
 
-En tu proyecto de Vercel, ve a Settings → Environment Variables y agrega:
-- (Opcional) Puedes dejar las credenciales directamente en el HTML por ahora para simplificar
+Para producción, las credenciales de Supabase se configurarán como variables de entorno en Vercel para mayor seguridad. Por ahora, están en el HTML para simplificar.
 
 ## 🔥 Funcionalidad
 
-- **Probar Conexión**: Crea un documento de prueba en Firestore
-- **Inicializar Datos Base**: Crea el warehouse BASE en Firestore
+- **Probar Conexión**: Intenta hacer una consulta a la tabla `warehouses` en Supabase para verificar la conectividad.
 
 ## 📁 Estructura
 
@@ -61,7 +53,7 @@ firebase-basic-test/
 
 ## ✅ Siguiente Paso
 
-Una vez que este proyecto básico funcione en Vercel:
-- FASE 2: Añadir gestión de warehouses
-- FASE 3: Añadir componentes
+Una vez que este proyecto básico funcione en Vercel y la conexión a Supabase sea exitosa:
+- FASE 2: Crear la tabla `warehouses` y empezar a añadir datos.
+- FASE 3: Reconstruir la interfaz de React para gestionar los datos.
 - FASE 4: etc...

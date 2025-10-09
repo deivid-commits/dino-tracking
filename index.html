@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Firebase Test - Fase 1</title>
+    <title>Supabase Test - Fase 1</title>
     <style>
         * {
             margin: 0;
@@ -162,148 +162,103 @@
 </head>
 <body>
     <div class="container">
-        <h1>🔥 Firebase Test - FASE 1</h1>
-        <p class="subtitle">Prueba de Conectividad con Firebase</p>
+        <h1>⚡ Supabase Test - FASE 1</h1>
+        <p class="subtitle">Prueba de Conectividad con Supabase</p>
         
-        <div id="config-status" class="status-box warning">
-            <span class="icon">⚠️</span>
+        <div id="config-status" class="status-box">
+            <span class="icon">🔄</span>
             <div>
-                <strong>Configuración Pendiente</strong><br>
-                <small>Verificando configuración de Firebase...</small>
+                <strong>Estado de la Conexión</strong><br>
+                <small>Listo para probar...</small>
             </div>
         </div>
         
         <div class="instructions">
             <h3>📋 Instrucciones:</h3>
             <ol>
-                <li>Ve a <a href="https://console.firebase.google.com" target="_blank">Firebase Console</a></li>
-                <li>Crea un proyecto o selecciona uno existente</li>
-                <li>Ve a Project Settings → General → Your apps</li>
-                <li>Agrega una Web App y copia las credenciales</li>
-                <li>Crea un archivo <code>.env</code> con las credenciales</li>
-                <li>Habilita Firestore Database en el proyecto</li>
+                <li>Las credenciales de Supabase ya están en este archivo.</li>
+                <li>Haz clic en "Probar Conexión" para verificar que Vercel se puede conectar a la base de datos de Supabase.</li>
+                <li>Si la prueba es exitosa, podemos continuar añadiendo más funcionalidades.</li>
             </ol>
         </div>
         
         <div style="margin-top: 30px;">
-            <button class="btn" id="test-btn" onclick="testConnection()" disabled>
-                <span id="test-btn-text">Probar Conexión</span>
-            </button>
-            
-            <button class="btn secondary" id="init-btn" onclick="initializeData()" disabled>
-                <span id="init-btn-text">Inicializar Datos Base</span>
+            <button class="btn" id="test-btn" onclick="testConnection()">
+                <span id="test-btn-text">Probar Conexión a Supabase</span>
             </button>
         </div>
         
         <div id="result" class="result"></div>
     </div>
 
-    <!-- Firebase SDK -->
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getFirestore, collection, doc, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
-        
-        // Esta configuración DEBE venir de un archivo .env en producción
-        // Por ahora, dejamos valores vacíos para que el usuario los complete
-        const firebaseConfig = {
-            apiKey: "YOUR_API_KEY_HERE",
-            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_PROJECT_ID.appspot.com",
-            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-            appId: "YOUR_APP_ID"
-        };
-        
-        // Verificar si Firebase está configurado
-        const isConfigured = firebaseConfig.apiKey !== "YOUR_API_KEY_HERE" && 
-                            firebaseConfig.projectId !== "YOUR_PROJECT_ID";
-        
-        let app = null;
-        let db = null;
-        
+        const SUPABASE_URL = "https://tsazpplddhrxpwnszrrt.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRzYXpwcGxkZGhyeHB3bnN6cnJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAwMjM3NTMsImV4cCI6MjA3NTU5OTc1M30.D4jGctOp43ejJnIUQHyYvMhb6TwCw5reinXf9iVD7RY";
+
+        const { createClient } = supabase;
+        const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
         const configStatus = document.getElementById('config-status');
-        const testBtn = document.getElementById('test-btn');
-        const initBtn = document.getElementById('init-btn');
         const resultDiv = document.getElementById('result');
-        
-        if (isConfigured) {
-            try {
-                app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                
-                configStatus.className = 'status-box success';
-                configStatus.innerHTML = `
-                    <span class="icon">✅</span>
-                    <div>
-                        <strong>Firebase Configurado</strong><br>
-                        <small>Proyecto: ${firebaseConfig.projectId}</small>
-                    </div>
-                `;
-                
-                testBtn.disabled = false;
-                initBtn.disabled = false;
-                
-                console.log('✅ Firebase inicializado correctamente');
-            } catch (error) {
-                console.error('❌ Error inicializando Firebase:', error);
-                configStatus.className = 'status-box error';
-                configStatus.innerHTML = `
-                    <span class="icon">❌</span>
-                    <div>
-                        <strong>Error en Configuración</strong><br>
-                        <small>${error.message}</small>
-                    </div>
-                `;
-            }
-        } else {
-            configStatus.className = 'status-box warning';
-            configStatus.innerHTML = `
-                <span class="icon">⚠️</span>
-                <div>
-                    <strong>Firebase NO Configurado</strong><br>
-                    <small>Por favor, edita firebase-test.html y agrega tus credenciales de Firebase</small>
-                </div>
-            `;
-        }
-        
+
+        configStatus.className = 'status-box success';
+        configStatus.innerHTML = `
+            <span class="icon">✅</span>
+            <div>
+                <strong>Supabase Configurado</strong><br>
+                <small>Listo para probar la conexión.</small>
+            </div>
+        `;
+        console.log('✅ Supabase cliente inicializado');
+
         // Funciones globales
         window.testConnection = async function() {
+            const testBtn = document.getElementById('test-btn');
             const testBtnText = document.getElementById('test-btn-text');
             testBtnText.innerHTML = '<span class="loading"></span> Probando...';
             testBtn.disabled = true;
             resultDiv.classList.remove('show');
-            
+
             try {
-                console.log('🧪 Probando conexión a Firebase...');
-                
-                // Crear documento de prueba
-                const testDocRef = doc(db, 'test_connection', 'test_' + Date.now());
-                await setDoc(testDocRef, {
-                    message: 'Test connection successful',
-                    timestamp: new Date(),
-                    test: true
-                });
-                
-                console.log('✅ Documento de prueba creado');
-                
-                // Leer documento de prueba
-                const docSnap = await getDoc(testDocRef);
-                
-                if (docSnap.exists()) {
-                    console.log('✅ Documento leído correctamente:', docSnap.data());
-                    
+                console.log('🧪 Probando conexión a Supabase...');
+
+                // Intentar leer de una tabla (ej. 'warehouses').
+                // Supabase crea la tabla si no existe, pero para leer necesitamos que exista.
+                // Una simple consulta para ver si podemos conectar.
+                const { data, error } = await db
+                    .from('warehouses') // Asumimos que existirá una tabla 'warehouses'
+                    .select('id')
+                    .limit(1);
+
+                if (error && error.message.includes("relation \"warehouses\" does not exist")) {
+                    // Esto es un éxito de conexión, aunque la tabla no exista.
+                    console.log('✅ Conexión exitosa, aunque la tabla "warehouses" no existe aún.');
                     resultDiv.className = 'result show status-box success';
                     resultDiv.innerHTML = `
                         <span class="icon">✅</span>
                         <div>
                             <strong>¡Conexión Exitosa!</strong><br>
-                            <small>Se creó y leyó un documento de prueba correctamente</small>
+                            <small>Se conectó a Supabase correctamente. La tabla 'warehouses' aún no existe, pero la crearemos en el siguiente paso.</small>
                         </div>
                     `;
+                } else if (error) {
+                    // Otro tipo de error
+                    throw error;
                 } else {
-                    throw new Error('No se pudo leer el documento de prueba');
+                    // La tabla existe y pudimos leer
+                     console.log('✅ Conexión exitosa y la tabla "warehouses" ya existe.');
+                    resultDiv.className = 'result show status-box success';
+                    resultDiv.innerHTML = `
+                        <span class="icon">✅</span>
+                        <div>
+                            <strong>¡Conexión Exitosa!</strong><br>
+                            <small>Se conectó a Supabase y se pudo consultar la tabla 'warehouses'.</small>
+                        </div>
+                    `;
                 }
-                
+
             } catch (error) {
                 console.error('❌ Error en la prueba:', error);
                 resultDiv.className = 'result show status-box error';
@@ -312,61 +267,12 @@
                     <div>
                         <strong>Error en la Conexión</strong><br>
                         <small>${error.message}</small><br>
-                        <small>Verifica que Firestore esté habilitado en tu proyecto</small>
+                        <small>Verifica las credenciales de Supabase y la configuración de red.</small>
                     </div>
                 `;
             } finally {
-                testBtnText.textContent = 'Probar Conexión';
+                testBtnText.textContent = 'Probar Conexión a Supabase';
                 testBtn.disabled = false;
-            }
-        };
-        
-        window.initializeData = async function() {
-            const initBtnText = document.getElementById('init-btn-text');
-            initBtnText.innerHTML = '<span class="loading"></span> Inicializando...';
-            initBtn.disabled = true;
-            resultDiv.classList.remove('show');
-            
-            try {
-                console.log('🚀 Inicializando datos base...');
-                
-                // Crear warehouse BASE
-                const baseWarehouseRef = doc(db, 'warehouses', 'BASE');
-                await setDoc(baseWarehouseRef, {
-                    id: 'BASE',
-                    name: 'Warehouse BASE',
-                    code: 'BASE',
-                    location: 'Sistema Principal',
-                    description: 'Warehouse principal que contiene todos los datos históricos',
-                    is_active: true,
-                    is_default: true,
-                    created_at: new Date()
-                });
-                
-                console.log('✅ Warehouse BASE creado');
-                
-                resultDiv.className = 'result show status-box success';
-                resultDiv.innerHTML = `
-                    <span class="icon">✅</span>
-                    <div>
-                        <strong>¡Datos Inicializados!</strong><br>
-                        <small>Se creó el warehouse BASE correctamente</small>
-                    </div>
-                `;
-                
-            } catch (error) {
-                console.error('❌ Error inicializando datos:', error);
-                resultDiv.className = 'result show status-box error';
-                resultDiv.innerHTML = `
-                    <span class="icon">❌</span>
-                    <div>
-                        <strong>Error en Inicialización</strong><br>
-                        <small>${error.message}</small>
-                    </div>
-                `;
-            } finally {
-                initBtnText.textContent = 'Inicializar Datos Base';
-                initBtn.disabled = false;
             }
         };
     </script>
