@@ -3,8 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Supabase Test - Fase 1 - v1.2</title>
+    <title>Supabase Test - Fase 2 - v1.3</title>
     <style>
+        .sql-box {
+            background: #2d3748;
+            color: #f7fafc;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            margin-top: 20px;
+            position: relative;
+        }
+        .sql-box button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #4a5568;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
         .version {
             position: absolute;
             top: 10px;
@@ -172,31 +192,49 @@
     </style>
 </head>
 <body>
-    <div class="version">v1.2</div>
+    <div class="version">v1.3</div>
     <div class="container">
-        <h1>⚡ Supabase Test - FASE 1</h1>
-        <p class="subtitle">Prueba de Conectividad con Supabase</p>
+        <h1>⚡ Supabase - FASE 2</h1>
+        <p class="subtitle">Creación de la Tabla 'warehouses'</p>
         
-        <div id="config-status" class="status-box">
-            <span class="icon">🔄</span>
+        <div id="config-status" class="status-box success">
+            <span class="icon">✅</span>
             <div>
-                <strong>Estado de la Conexión</strong><br>
-                <small>Listo para probar...</small>
+                <strong>¡Conexión Exitosa!</strong><br>
+                <small>La conexión con Supabase funciona correctamente.</small>
             </div>
         </div>
         
         <div class="instructions">
-            <h3>📋 Instrucciones:</h3>
+            <h3>📋 Siguiente Paso: Crear la Tabla</h3>
             <ol>
-                <li>Las credenciales de Supabase ya están en este archivo.</li>
-                <li>Haz clic en "Probar Conexión" para verificar que Vercel se puede conectar a la base de datos de Supabase.</li>
-                <li>Si la prueba es exitosa, podemos continuar añadiendo más funcionalidades.</li>
+                <li>Ve a tu proyecto en <a href="https://app.supabase.com" target="_blank">Supabase</a>.</li>
+                <li>En el menú de la izquierda, ve a <strong>SQL Editor</strong>.</li>
+                <li>Haz clic en <strong>"New query"</strong>.</li>
+                <li>Copia el código de abajo y pégalo en el editor.</li>
+                <li>Haz clic en el botón <strong>"RUN"</strong>.</li>
             </ol>
+        </div>
+
+        <div class="sql-box">
+            <button onclick="copySql()">Copiar</button>
+            <pre id="sql-code">
+CREATE TABLE public.warehouses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    location TEXT,
+    description TEXT,
+    is_active BOOLEAN DEFAULT true,
+    is_default BOOLEAN DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+            </pre>
         </div>
         
         <div style="margin-top: 30px;">
             <button class="btn" id="test-btn" onclick="testConnection()">
-                <span id="test-btn-text">Probar Conexión a Supabase</span>
+                <span id="test-btn-text">Verificar Creación de Tabla</span>
             </button>
         </div>
         
@@ -226,66 +264,69 @@
         console.log('✅ Supabase cliente inicializado');
 
         // Funciones globales
+        window.copySql = function() {
+            const sqlCode = document.getElementById('sql-code').innerText;
+            navigator.clipboard.writeText(sqlCode).then(() => {
+                alert('¡Código SQL copiado!');
+            }, () => {
+                alert('Error al copiar el código.');
+            });
+        }
+
         window.testConnection = async function() {
             const testBtn = document.getElementById('test-btn');
             const testBtnText = document.getElementById('test-btn-text');
-            testBtnText.innerHTML = '<span class="loading"></span> Probando...';
+            testBtnText.innerHTML = '<span class="loading"></span> Verificando...';
             testBtn.disabled = true;
             resultDiv.classList.remove('show');
 
             try {
-                console.log('🧪 Probando conexión a Supabase...');
+                console.log('🧪 Verificando si la tabla "warehouses" existe...');
 
-                // Intentar leer de una tabla (ej. 'warehouses').
-                // Supabase crea la tabla si no existe, pero para leer necesitamos que exista.
-                // Una simple consulta para ver si podemos conectar.
                 const { data, error } = await db
-                    .from('warehouses') // Asumimos que existirá una tabla 'warehouses'
+                    .from('warehouses')
                     .select('id')
                     .limit(1);
 
                 if (error && (error.message.includes("does not exist") || error.code === "42P01" || error.message.includes("schema cache"))) {
-                    // Esto es un éxito de conexión, aunque la tabla no exista.
-                    // El código 42P01 es el error estándar de PostgreSQL para "undefined_table".
-                    // "schema cache" es parte del error que estás viendo.
-                    console.log('✅ Conexión exitosa, aunque la tabla "warehouses" no existe aún.');
-                    resultDiv.className = 'result show status-box success';
+                    // La tabla todavía no existe
+                    console.error('❌ La tabla "warehouses" todavía no existe.');
+                    resultDiv.className = 'result show status-box error';
                     resultDiv.innerHTML = `
-                        <span class="icon">✅</span>
+                        <span class="icon">❌</span>
                         <div>
-                            <strong>¡Conexión Exitosa!</strong><br>
-                            <small>Se conectó a Supabase correctamente. La tabla 'warehouses' aún no existe, pero la crearemos en el siguiente paso.</small>
+                            <strong>Tabla no encontrada</strong><br>
+                            <small>Asegúrate de haber ejecutado el código SQL en tu editor de Supabase.</small>
                         </div>
                     `;
                 } else if (error) {
                     // Otro tipo de error
                     throw error;
                 } else {
-                    // La tabla existe y pudimos leer
-                     console.log('✅ Conexión exitosa y la tabla "warehouses" ya existe.');
+                    // ¡Éxito! La tabla existe.
+                     console.log('✅ ¡Éxito! La tabla "warehouses" existe.');
                     resultDiv.className = 'result show status-box success';
                     resultDiv.innerHTML = `
                         <span class="icon">✅</span>
                         <div>
-                            <strong>¡Conexión Exitosa!</strong><br>
-                            <small>Se conectó a Supabase y se pudo consultar la tabla 'warehouses'.</small>
+                            <strong>¡Tabla Creada Exitosamente!</strong><br>
+                            <small>Ahora podemos empezar a añadir datos. ¡Vamos a la FASE 3!</small>
                         </div>
                     `;
                 }
 
             } catch (error) {
-                console.error('❌ Error en la prueba:', error);
+                console.error('❌ Error en la verificación:', error);
                 resultDiv.className = 'result show status-box error';
                 resultDiv.innerHTML = `
                     <span class="icon">❌</span>
                     <div>
-                        <strong>Error en la Conexión</strong><br>
-                        <small>${error.message}</small><br>
-                        <small>Verifica las credenciales de Supabase y la configuración de red.</small>
+                        <strong>Error en la Verificación</strong><br>
+                        <small>${error.message}</small>
                     </div>
                 `;
             } finally {
-                testBtnText.textContent = 'Probar Conexión a Supabase';
+                testBtnText.textContent = 'Verificar Creación de Tabla';
                 testBtn.disabled = false;
             }
         };
