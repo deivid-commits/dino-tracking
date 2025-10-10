@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Bluetooth ESP32 Test</title>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        button { font-size: 1.2em; padding: 10px 20px; margin-bottom: 20px; }
+        #status { font-style: italic; color: #555; }
+        #devices { list-style: none; padding: 0; }
+        #devices li { border: 1px solid #ccc; border-radius: 5px; padding: 10px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Prueba de Detección de ESP32 con Web Bluetooth</h1>
+    <button id="scanButton">Buscar Dispositivos ESP32</button>
+    <p id="status">Esperando para buscar...</p>
+    <h2>Dispositivos Encontrados:</h2>
+    <ul id="devices"></ul>
+
+    <script>
+        const scanButton = document.getElementById('scanButton');
+        const status = document.getElementById('status');
+        const devicesList = document.getElementById('devices');
+
+        const DEVICE_SERVICE_UUID = "a07498ca-ad5b-474e-940d-16f1fbe7e8cd";
+
+        scanButton.addEventListener('click', async () => {
+            if (!navigator.bluetooth) {
+                status.textContent = 'Error: La API de Web Bluetooth no es compatible con este navegador.';
+                return;
+            }
+
+            try {
+                status.textContent = 'Buscando dispositivos...';
+                devicesList.innerHTML = '';
+
+                const device = await navigator.bluetooth.requestDevice({
+                    filters: [{
+                        services: [DEVICE_SERVICE_UUID]
+                    }]
+                });
+
+                status.textContent = `¡Dispositivo encontrado! Conectando...`;
+                
+                const newDeviceItem = document.createElement('li');
+                newDeviceItem.textContent = `Nombre: ${device.name || 'N/A'}, ID: ${device.id}`;
+                devicesList.appendChild(newDeviceItem);
+
+                // Aquí iría la lógica para conectar y comunicarse con el dispositivo
+                // Por ahora, solo lo detectamos.
+                console.log('Dispositivo encontrado:', device);
+                status.textContent = `Dispositivo "${device.name}" encontrado y listo para conectar.`;
+
+            } catch (error) {
+                status.textContent = `Error: ${error.message}`;
+                console.error('Error al buscar dispositivos:', error);
+            }
+        });
+    </script>
+</body>
+</html>
