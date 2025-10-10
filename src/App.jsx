@@ -1,264 +1,425 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 
-function App() {
+// Componente de Login de Operarios
+function OperatorLogin({ onLoginSuccess }) {
+  const [loginCode, setLoginCode] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleLogin = async () => {
+    if (loginCode.length !== 4) {
+      setError('El código debe tener 4 dígitos');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      // Buscar operario en la base de datos (por ahora simulamos)
+      // TODO: Implementar búsqueda real en tabla de operadores
+      const mockOperator = {
+        id: '1',
+        name: 'Operario Demo',
+        code: loginCode,
+        is_admin: false,
+        permissions: ['dashboard', 'components', 'dinosaurs', 'devices']
+      };
+
+      onLoginSuccess(mockOperator);
+    } catch (error) {
+      setError('Error en el login: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      fontFamily: 'Arial, sans-serif'
+    }}>
+      <div style={{
+        backgroundColor: 'white',
+        padding: '40px',
+        borderRadius: '20px',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+        textAlign: 'center',
+        maxWidth: '400px',
+        width: '100%'
+      }}>
+        <div style={{ marginBottom: '30px' }}>
+          <div style={{
+            width: '80px',
+            height: '80px',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 20px',
+            fontSize: '40px'
+          }}>
+            🦖
+          </div>
+          <h1 style={{ margin: 0, color: '#2c3e50', fontSize: '24px' }}>DinoTrack</h1>
+          <p style={{ margin: '5px 0 0 0', color: '#7f8c8d' }}>Sistema de Gestión</p>
+        </div>
+
+        <div style={{ marginBottom: '20px' }}>
+          <input
+            type="password"
+            placeholder="Código de Operario (4 dígitos)"
+            value={loginCode}
+            onChange={(e) => setLoginCode(e.target.value)}
+            maxLength="4"
+            style={{
+              width: '100%',
+              padding: '15px',
+              border: '2px solid #e0e0e0',
+              borderRadius: '8px',
+              fontSize: '18px',
+              textAlign: 'center',
+              letterSpacing: '3px',
+              boxSizing: 'border-box'
+            }}
+            onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+          />
+        </div>
+
+        {error && (
+          <div style={{
+            backgroundColor: '#ffebee',
+            color: '#c62828',
+            padding: '10px',
+            borderRadius: '5px',
+            marginBottom: '20px',
+            border: '1px solid #ffcdd2'
+          }}>
+            {error}
+          </div>
+        )}
+
+        <button
+          onClick={handleLogin}
+          disabled={loading || loginCode.length !== 4}
+          style={{
+            width: '100%',
+            padding: '15px',
+            backgroundColor: loginCode.length === 4 ? '#667eea' : '#ccc',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            cursor: loginCode.length === 4 ? 'pointer' : 'not-allowed',
+            transition: 'all 0.3s ease'
+          }}
+        >
+          {loading ? '🔄 Verificando...' : '🚪 Iniciar Sesión'}
+        </button>
+
+        <div style={{ marginTop: '20px', fontSize: '14px', color: '#7f8c8d' }}>
+          <p>💡 Ingresa tu código de 4 dígitos</p>
+          <p>⏰ Sesión expira automáticamente después de 10 minutos de inactividad</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Componente Principal de la Aplicación
+function DinoTrackApp() {
+  const [currentUser, setCurrentUser] = useState(null);
+  const [currentPage, setCurrentPage] = useState('dashboard');
+  const [activeWarehouse, setActiveWarehouse] = useState(null);
   const [warehouses, setWarehouses] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [activeWarehouse, setActiveWarehouse] = useState(null);
 
   useEffect(() => {
-    loadWarehouses();
-  }, []);
+    if (currentUser) {
+      loadWarehouses();
+    }
+  }, [currentUser]);
 
   const loadWarehouses = async () => {
     try {
       setLoading(true);
-      setError(null);
-
-      console.log('🔍 Cargando warehouses...');
-
       const { data, error } = await supabase
         .from('warehouses')
         .select('*')
         .eq('is_active', true)
         .order('name');
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
-      console.log('✅ Warehouses cargados:', data);
       setWarehouses(data || []);
 
-      // Si hay warehouses, seleccionar el primero como activo
-      if (data && data.length > 0) {
-        setActiveWarehouse(data[0]);
+      // Seleccionar warehouse BASE por defecto
+      const baseWarehouse = data?.find(w => w.code === 'BASE');
+      if (baseWarehouse) {
+        setActiveWarehouse(baseWarehouse);
       }
     } catch (error) {
-      console.error('❌ Error cargando warehouses:', error);
-      setError(error.message);
+      console.error('Error cargando warehouses:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const createWarehouse = async () => {
-    const name = prompt('Nombre del nuevo warehouse:');
-    const code = prompt('Código del warehouse:');
-    const location = prompt('Ubicación:');
-
-    if (!name || !code) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('warehouses')
-        .insert([{
-          name,
-          code,
-          location,
-          description: `Warehouse creado desde la aplicación`,
-          is_active: true
-        }])
-        .select();
-
-      if (error) throw error;
-
-      console.log('✅ Warehouse creado:', data);
-      loadWarehouses(); // Recargar la lista
-    } catch (error) {
-      console.error('❌ Error creando warehouse:', error);
-      alert('Error creando warehouse: ' + error.message);
-    }
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setCurrentPage('dashboard');
   };
+
+  // Si no hay usuario logueado, mostrar login
+  if (!currentUser) {
+    return <OperatorLogin onLoginSuccess={setCurrentUser} />;
+  }
 
   return (
     <div style={{
       fontFamily: 'Arial, sans-serif',
-      maxWidth: '1200px',
-      margin: '0 auto',
-      padding: '20px',
       backgroundColor: '#f5f5f5',
       minHeight: '100vh'
     }}>
       {/* Header */}
       <header style={{
         backgroundColor: 'white',
-        padding: '20px',
-        borderRadius: '10px',
-        marginBottom: '20px',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+        padding: '15px 20px',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
       }}>
-        <h1 style={{ margin: 0, color: '#2c3e50' }}>🏭 DinoTrack - Supabase Edition</h1>
-        <p style={{ margin: '5px 0 0 0', color: '#7f8c8d' }}>
-          Gestión de Warehouses con React + Supabase
-        </p>
+        <div>
+          <h1 style={{ margin: 0, color: '#2c3e50' }}>🏭 DinoTrack</h1>
+          <p style={{ margin: 0, color: '#7f8c8d', fontSize: '14px' }}>
+            Operario: {currentUser.name} | Warehouse: {activeWarehouse?.name || 'Seleccionar'}
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          {/* Selector de Warehouse */}
+          <select
+            value={activeWarehouse?.id || ''}
+            onChange={(e) => {
+              const warehouse = warehouses.find(w => w.id === e.target.value);
+              setActiveWarehouse(warehouse);
+            }}
+            style={{
+              padding: '8px 12px',
+              borderRadius: '5px',
+              border: '1px solid #ddd',
+              backgroundColor: 'white'
+            }}
+          >
+            <option value="">Seleccionar Warehouse</option>
+            {warehouses.map(warehouse => (
+              <option key={warehouse.id} value={warehouse.id}>
+                {warehouse.name} ({warehouse.code})
+              </option>
+            ))}
+          </select>
+
+          {/* Botón de Logout */}
+          <button
+            onClick={handleLogout}
+            style={{
+              backgroundColor: '#e74c3c',
+              color: 'white',
+              border: 'none',
+              padding: '8px 15px',
+              borderRadius: '5px',
+              cursor: 'pointer'
+            }}
+          >
+            🚪 Salir
+          </button>
+        </div>
       </header>
 
-      {/* Estado de Conexión */}
-      <div style={{
-        padding: '15px',
-        marginBottom: '20px',
-        borderRadius: '8px',
-        backgroundColor: error ? '#ffebee' : '#e8f5e8',
-        border: `1px solid ${error ? '#f44336' : '#4caf50'}`,
-        color: error ? '#c62828' : '#2e7d32',
-        textAlign: 'center'
-      }}>
-        <h2 style={{ margin: 0 }}>
-          {loading ? '🔄 Cargando...' : `✅ ¡Conexión exitosa! Encontrados ${warehouses.length} warehouses`}
-        </h2>
-        {error && <p style={{ margin: '5px 0 0 0' }}><strong>Error:</strong> {error}</p>}
-      </div>
+      {/* Sidebar y Contenido */}
+      <div style={{ display: 'flex', minHeight: 'calc(100vh - 80px)' }}>
 
-      {/* Contenido Principal */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-
-        {/* Lista de Warehouses */}
-        <div style={{
+        {/* Sidebar */}
+        <aside style={{
+          width: '250px',
           backgroundColor: 'white',
           padding: '20px',
-          borderRadius: '10px',
-          boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+          borderRight: '1px solid #e0e0e0',
+          boxShadow: '2px 0 10px rgba(0,0,0,0.1)'
         }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <h2 style={{ margin: 0, color: '#2c3e50' }}>📦 Warehouses</h2>
-            <button
-              onClick={createWarehouse}
-              style={{
-                backgroundColor: '#3498db',
-                color: 'white',
-                border: 'none',
-                padding: '10px 15px',
-                borderRadius: '5px',
-                cursor: 'pointer'
-              }}
-            >
-              ➕ Nuevo Warehouse
-            </button>
-          </div>
-
-          {loading ? (
-            <p>Cargando warehouses...</p>
-          ) : warehouses.length > 0 ? (
-            <div>
-              {warehouses.map(warehouse => (
-                <div
-                  key={warehouse.id}
-                  onClick={() => setActiveWarehouse(warehouse)}
-                  style={{
-                    padding: '15px',
-                    marginBottom: '10px',
-                    borderRadius: '8px',
-                    backgroundColor: activeWarehouse?.id === warehouse.id ? '#e3f2fd' : '#f9f9f9',
-                    border: `2px solid ${activeWarehouse?.id === warehouse.id ? '#2196f3' : '#e0e0e0'}`,
-                    cursor: 'pointer',
-                    transition: 'all 0.3s ease'
-                  }}
-                >
-                  <h3 style={{ margin: '0 0 5px 0', color: '#2c3e50' }}>{warehouse.name}</h3>
-                  <p style={{ margin: '0 0 5px 0', color: '#7f8c8d' }}>
-                    <strong>Código:</strong> {warehouse.code}
-                  </p>
-                  <p style={{ margin: '0 0 5px 0', color: '#7f8c8d' }}>
-                    <strong>Ubicación:</strong> {warehouse.location}
-                  </p>
-                  {warehouse.description && (
-                    <p style={{ margin: '0', color: '#7f8c8d', fontSize: '14px' }}>
-                      {warehouse.description}
-                    </p>
-                  )}
-                </div>
+          <nav>
+            <ul style={{ listStyle: 'none', padding: 0 }}>
+              {[
+                { id: 'dashboard', name: '🏠 Dashboard', icon: '📊' },
+                { id: 'components', name: '🧩 Componentes', icon: '📦' },
+                { id: 'dinosaurs', name: '🦕 Dinosaurios', icon: '🦖' },
+                { id: 'devices', name: '📱 Dispositivos', icon: '🔧' },
+                { id: 'inventory', name: '📋 Inventario', icon: '🏪' },
+                { id: 'quality', name: '✅ Control de Calidad', icon: '🧪' },
+                { id: 'sales', name: '💰 Ventas', icon: '📈' },
+                { id: 'shipping', name: '📦 Envíos', icon: '🚚' }
+              ].map(page => (
+                <li key={page.id} style={{ marginBottom: '5px' }}>
+                  <button
+                    onClick={() => setCurrentPage(page.id)}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      textAlign: 'left',
+                      backgroundColor: currentPage === page.id ? '#e3f2fd' : 'transparent',
+                      border: `2px solid ${currentPage === page.id ? '#2196f3' : 'transparent'}`,
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      transition: 'all 0.3s ease'
+                    }}
+                  >
+                    {page.icon} {page.name}
+                  </button>
+                </li>
               ))}
-            </div>
-          ) : (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#7f8c8d' }}>
-              <p>📦 No hay warehouses configurados</p>
-              <p>Haz clic en "Nuevo Warehouse" para crear el primero</p>
-            </div>
-          )}
-        </div>
+            </ul>
+          </nav>
+        </aside>
 
-        {/* Detalles del Warehouse Activo */}
-        <div style={{
-          backgroundColor: 'white',
+        {/* Contenido Principal */}
+        <main style={{
+          flex: 1,
           padding: '20px',
-          borderRadius: '10px',
-          boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+          backgroundColor: '#f8f9fa'
         }}>
-          <h2 style={{ margin: '0 0 20px 0', color: '#2c3e50' }}>
-            {activeWarehouse ? '📋 Detalles del Warehouse' : '👈 Selecciona un Warehouse'}
-          </h2>
-
-          {activeWarehouse ? (
-            <div>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ fontWeight: 'bold', color: '#2c3e50' }}>Nombre:</label>
-                <p style={{ margin: '5px 0', color: '#34495e' }}>{activeWarehouse.name}</p>
-              </div>
-
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ fontWeight: 'bold', color: '#2c3e50' }}>Código:</label>
-                <p style={{ margin: '5px 0', color: '#34495e' }}>{activeWarehouse.code}</p>
-              </div>
-
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ fontWeight: 'bold', color: '#2c3e50' }}>Ubicación:</label>
-                <p style={{ margin: '5px 0', color: '#34495e' }}>{activeWarehouse.location}</p>
-              </div>
-
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ fontWeight: 'bold', color: '#2c3e50' }}>Estado:</label>
-                <p style={{
-                  margin: '5px 0',
-                  color: activeWarehouse.is_active ? '#27ae60' : '#e74c3c'
-                }}>
-                  {activeWarehouse.is_active ? '✅ Activo' : '❌ Inactivo'}
-                </p>
-              </div>
-
-              {activeWarehouse.description && (
-                <div style={{ marginBottom: '15px' }}>
-                  <label style={{ fontWeight: 'bold', color: '#2c3e50' }}>Descripción:</label>
-                  <p style={{ margin: '5px 0', color: '#34495e' }}>{activeWarehouse.description}</p>
-                </div>
-              )}
-
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ fontWeight: 'bold', color: '#2c3e50' }}>Creado:</label>
-                <p style={{ margin: '5px 0', color: '#34495e' }}>
-                  {new Date(activeWarehouse.created_at).toLocaleDateString()}
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#7f8c8d' }}>
-              <p>👈 Haz clic en un warehouse para ver sus detalles</p>
-            </div>
-          )}
-        </div>
+          {currentPage === 'dashboard' && <Dashboard />}
+          {currentPage === 'components' && <Components />}
+          {currentPage === 'dinosaurs' && <Dinosaurs />}
+          {currentPage === 'devices' && <Devices />}
+          {currentPage === 'inventory' && <Inventory />}
+          {currentPage === 'quality' && <QualityControl />}
+          {currentPage === 'sales' && <Sales />}
+          {currentPage === 'shipping' && <Shipping />}
+        </main>
       </div>
-
-      {/* Información de Debug (Solo en desarrollo) */}
-      {import.meta.env.DEV && (
-        <div style={{
-          marginTop: '20px',
-          padding: '15px',
-          backgroundColor: '#f8f9fa',
-          borderRadius: '8px',
-          border: '1px solid #dee2e6'
-        }}>
-          <h3 style={{ margin: '0 0 10px 0', color: '#2c3e50' }}>🔧 Información de Debug:</h3>
-          <ul style={{ margin: 0, color: '#495057' }}>
-            <li>Cliente Supabase: {supabase ? '✅ Inicializado' : '❌ No inicializado'}</li>
-            <li>Variables de entorno: {import.meta.env.VITE_SUPABASE_URL ? '✅ Configuradas' : '❌ No configuradas'}</li>
-            <li>URL de Supabase: {import.meta.env.VITE_SUPABASE_URL || 'No definida'}</li>
-            <li>Modo: {import.meta.env.DEV ? '🛠️ Desarrollo' : '🚀 Producción'}</li>
-          </ul>
-        </div>
-      )}
     </div>
   );
+}
+
+// Componentes de Página (simplificados por ahora)
+function Dashboard() {
+  return (
+    <div>
+      <h2>🏠 Dashboard</h2>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginTop: '20px' }}>
+        <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '10px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
+          <h3>📦 Inventario</h3>
+          <p>Total de componentes disponibles</p>
+        </div>
+        <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '10px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
+          <h3>🦕 Dinosaurios</h3>
+          <p>Productos listos para envío</p>
+        </div>
+        <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '10px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
+          <h3>📱 Dispositivos</h3>
+          <p>ESP32 registrados y listos</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Components() {
+  return (
+    <div>
+      <h2>🧩 Gestión de Componentes</h2>
+      <p>Registrar y gestionar componentes individuales</p>
+      <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '10px', marginTop: '20px' }}>
+        <p>🚧 Funcionalidad en desarrollo...</p>
+      </div>
+    </div>
+  );
+}
+
+function Dinosaurs() {
+  return (
+    <div>
+      <h2>🦕 Gestión de Dinosaurios</h2>
+      <p>Registrar y rastrear productos terminados</p>
+      <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '10px', marginTop: '20px' }}>
+        <p>🚧 Funcionalidad en desarrollo...</p>
+      </div>
+    </div>
+  );
+}
+
+function Devices() {
+  return (
+    <div>
+      <h2>📱 Gestión de Dispositivos</h2>
+      <p>Registrar módulos ESP32 y realizar pruebas</p>
+      <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '10px', marginTop: '20px' }}>
+        <p>🚧 Funcionalidad en desarrollo...</p>
+      </div>
+    </div>
+  );
+}
+
+function Inventory() {
+  return (
+    <div>
+      <h2>📋 Gestión de Inventario</h2>
+      <p>Control de stock y órdenes de compra</p>
+      <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '10px', marginTop: '20px' }}>
+        <p>🚧 Funcionalidad en desarrollo...</p>
+      </div>
+    </div>
+  );
+}
+
+function QualityControl() {
+  return (
+    <div>
+      <h2>✅ Control de Calidad</h2>
+      <p>Pruebas y validación de productos</p>
+      <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '10px', marginTop: '20px' }}>
+        <p>🚧 Funcionalidad en desarrollo...</p>
+      </div>
+    </div>
+  );
+}
+
+function Sales() {
+  return (
+    <div>
+      <h2>💰 Gestión de Ventas</h2>
+      <p>Seguimiento de ventas y clientes</p>
+      <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '10px', marginTop: '20px' }}>
+        <p>🚧 Funcionalidad en desarrollo...</p>
+      </div>
+    </div>
+  );
+}
+
+function Shipping() {
+  return (
+    <div>
+      <h2>📦 Gestión de Envíos</h2>
+      <p>Preparación y seguimiento de envíos</p>
+      <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '10px', marginTop: '20px' }}>
+        <p>🚧 Funcionalidad en desarrollo...</p>
+      </div>
+    </div>
+  );
+}
+
+// Componente Principal
+function App() {
+  return <DinoTrackApp />;
 }
 
 export default App;

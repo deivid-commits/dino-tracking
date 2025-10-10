@@ -1,0 +1,28 @@
+{
+  "test_mode": "fcc_prescán",
+  "timestamp": "2025-10-10T12:39:00",
+  "measurements": [
+    {
+      "frequency_mhz": 45.7,
+      "amplitude_dbmv": -45.2,
+      "fcc_limit_dbuv_m": 40.0,
+      "margin_db": -5.2,
+      "frequency_range": "VHF Low",
+      "range_description": "30-88 MHz Class B"
+    },
+    {
+      "frequency_mhz": 156.3,
+      "amplitude_dbmv": -38.7,
+      "fcc_limit_dbuv_m": 43.5,
+      "margin_db": 4.8,
+      "frequency_range": "VHF High",
+      "range_description": "88-216 MHz Class B"
+    }
+  ],
+  "worst_overall_peak": {
+    "frequency": 45.7,
+    "amplitude": -45.2,
+    "margin": -5.2,
+    "fcc_limit": 40.0
+  }
+}
