@@ -17,11 +17,24 @@ function OperatorLogin({ onLoginSuccess }) {
     setError('');
 
     try {
-      // Buscar operario en la base de datos (por ahora simulamos)
+      // Verificar si es administrador (código 2224)
+      if (loginCode === '2224') {
+        const adminUser = {
+          id: 'admin',
+          name: 'Administrador',
+          code: loginCode,
+          is_admin: true,
+          permissions: ['dashboard', 'components', 'dinosaurs', 'devices', 'inventory', 'quality', 'sales', 'shipping', 'admin']
+        };
+        onLoginSuccess(adminUser);
+        return;
+      }
+
+      // Buscar operario en la base de datos
       // TODO: Implementar búsqueda real en tabla de operadores
       const mockOperator = {
-        id: '1',
-        name: 'Operario Demo',
+        id: 'op1',
+        name: 'Operario Producción',
         code: loginCode,
         is_admin: false,
         permissions: ['dashboard', 'components', 'dinosaurs', 'devices']
@@ -200,7 +213,13 @@ function DinoTrackApp() {
         <div>
           <h1 style={{ margin: 0, color: '#2c3e50' }}>🏭 DinoTrack</h1>
           <p style={{ margin: 0, color: '#7f8c8d', fontSize: '14px' }}>
-            Operario: {currentUser.name} | Warehouse: {activeWarehouse?.name || 'Seleccionar'}
+            Operario: {currentUser.name}
+            {currentUser.is_admin && (
+              <span style={{ color: '#e74c3c', fontWeight: 'bold', marginLeft: '10px' }}>
+                👑 ADMIN
+              </span>
+            )}
+            | Warehouse: {activeWarehouse?.name || 'Seleccionar'}
           </p>
         </div>
 
@@ -226,6 +245,24 @@ function DinoTrackApp() {
               </option>
             ))}
           </select>
+
+          {/* Botón de Administración (solo para admins) */}
+          {currentUser.is_admin && (
+            <button
+              onClick={() => setCurrentPage('admin')}
+              style={{
+                backgroundColor: '#9b59b6',
+                color: 'white',
+                border: 'none',
+                padding: '8px 15px',
+                borderRadius: '5px',
+                cursor: 'pointer',
+                marginRight: '10px'
+              }}
+            >
+              ⚙️ Admin
+            </button>
+          )}
 
           {/* Botón de Logout */}
           <button
@@ -304,6 +341,7 @@ function DinoTrackApp() {
           {currentPage === 'quality' && <QualityControl />}
           {currentPage === 'sales' && <Sales />}
           {currentPage === 'shipping' && <Shipping />}
+          {currentPage === 'admin' && <AdminPanel />}
         </main>
       </div>
     </div>
@@ -413,6 +451,237 @@ function Shipping() {
       <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '10px', marginTop: '20px' }}>
         <p>🚧 Funcionalidad en desarrollo...</p>
       </div>
+    </div>
+  );
+}
+
+// Panel de Administración (solo para administradores)
+function AdminPanel() {
+  const [activeTab, setActiveTab] = useState('warehouses');
+  const [warehouses, setWarehouses] = useState([]);
+  const [operators, setOperators] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    await Promise.all([loadWarehouses(), loadOperators()]);
+  };
+
+  const loadWarehouses = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('warehouses')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setWarehouses(data || []);
+    } catch (error) {
+      console.error('Error cargando warehouses:', error);
+    }
+  };
+
+  const loadOperators = async () => {
+    try {
+      // Por ahora simulamos operadores
+      const mockOperators = [
+        { id: '1', name: 'Operario Producción', code: '1234', permissions: ['dashboard', 'components'] },
+        { id: '2', name: 'Operario QC', code: '5678', permissions: ['dashboard', 'quality'] },
+        { id: 'admin', name: 'Administrador', code: '2224', permissions: ['all'], is_admin: true }
+      ];
+      setOperators(mockOperators);
+    } catch (error) {
+      console.error('Error cargando operadores:', error);
+    }
+  };
+
+  const createWarehouse = async () => {
+    const name = prompt('Nombre del warehouse:');
+    const code = prompt('Código del warehouse:');
+    const location = prompt('Ubicación:');
+
+    if (!name || !code) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('warehouses')
+        .insert([{
+          name,
+          code,
+          location,
+          description: 'Warehouse creado desde panel de administración',
+          is_active: true
+        }])
+        .select();
+
+      if (error) throw error;
+
+      console.log('✅ Warehouse creado:', data);
+      loadWarehouses();
+      alert('Warehouse creado exitosamente');
+    } catch (error) {
+      console.error('❌ Error creando warehouse:', error);
+      alert('Error creando warehouse: ' + error.message);
+    }
+  };
+
+  const createOperator = async () => {
+    const name = prompt('Nombre del operario:');
+    const code = prompt('Código de 4 dígitos:');
+
+    if (!name || !code || code.length !== 4) {
+      alert('Debe ingresar un nombre y un código de 4 dígitos');
+      return;
+    }
+
+    try {
+      // Por ahora solo simulamos
+      const newOperator = {
+        id: Date.now().toString(),
+        name,
+        code,
+        permissions: ['dashboard', 'components'],
+        is_admin: false
+      };
+
+      setOperators(prev => [...prev, newOperator]);
+      alert('Operario creado exitosamente');
+    } catch (error) {
+      console.error('Error creando operario:', error);
+      alert('Error creando operario: ' + error.message);
+    }
+  };
+
+  return (
+    <div>
+      <h2>⚙️ Panel de Administración</h2>
+
+      {/* Tabs de Administración */}
+      <div style={{ marginBottom: '20px' }}>
+        {[
+          { id: 'warehouses', name: '🏭 Gestión de Warehouses' },
+          { id: 'operators', name: '👥 Gestión de Operarios' },
+          { id: 'system', name: '🔧 Configuración del Sistema' }
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            style={{
+              padding: '10px 20px',
+              marginRight: '10px',
+              backgroundColor: activeTab === tab.id ? '#9b59b6' : '#ecf0f1',
+              color: activeTab === tab.id ? 'white' : '#2c3e50',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              fontWeight: activeTab === tab.id ? 'bold' : 'normal'
+            }}
+          >
+            {tab.name}
+          </button>
+        ))}
+      </div>
+
+      {/* Contenido de las Tabs */}
+      {activeTab === 'warehouses' && (
+        <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '10px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h3>📦 Gestión de Warehouses</h3>
+            <button
+              onClick={createWarehouse}
+              style={{
+                backgroundColor: '#27ae60',
+                color: 'white',
+                border: 'none',
+                padding: '10px 15px',
+                borderRadius: '5px',
+                cursor: 'pointer'
+              }}
+            >
+              ➕ Crear Warehouse
+            </button>
+          </div>
+
+          {loading ? (
+            <p>Cargando warehouses...</p>
+          ) : warehouses.length > 0 ? (
+            <div>
+              {warehouses.map(warehouse => (
+                <div key={warehouse.id} style={{
+                  padding: '15px',
+                  marginBottom: '10px',
+                  border: '1px solid #ddd',
+                  borderRadius: '8px',
+                  backgroundColor: '#f9f9f9'
+                }}>
+                  <h4>{warehouse.name} ({warehouse.code})</h4>
+                  <p><strong>Ubicación:</strong> {warehouse.location}</p>
+                  <p><strong>Estado:</strong> {warehouse.is_active ? '✅ Activo' : '❌ Inactivo'}</p>
+                  <p><strong>Creado:</strong> {new Date(warehouse.created_at).toLocaleDateString()}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p>No hay warehouses configurados</p>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'operators' && (
+        <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '10px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h3>👥 Gestión de Operarios</h3>
+            <button
+              onClick={createOperator}
+              style={{
+                backgroundColor: '#3498db',
+                color: 'white',
+                border: 'none',
+                padding: '10px 15px',
+                borderRadius: '5px',
+                cursor: 'pointer'
+              }}
+            >
+              ➕ Crear Operario
+            </button>
+          </div>
+
+          <div>
+            {operators.map(operator => (
+              <div key={operator.id} style={{
+                padding: '15px',
+                marginBottom: '10px',
+                border: '1px solid #ddd',
+                borderRadius: '8px',
+                backgroundColor: operator.is_admin ? '#fff3cd' : '#f9f9f9'
+              }}>
+                <h4>{operator.name} {operator.is_admin && '👑'}</h4>
+                <p><strong>Código:</strong> {operator.code}</p>
+                <p><strong>Permisos:</strong> {operator.permissions.join(', ')}</p>
+                <p><strong>Tipo:</strong> {operator.is_admin ? 'Administrador' : 'Operario'}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'system' && (
+        <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '10px' }}>
+          <h3>🔧 Configuración del Sistema</h3>
+          <div style={{ marginTop: '20px' }}>
+            <h4>📊 Estado del Sistema</h4>
+            <ul>
+              <li>Base de datos: ✅ Conectada</li>
+              <li>Warehouses: {warehouses.length} configurados</li>
+              <li>Operarios: {operators.length} registrados</li>
+              <li>Estado: ✅ Operativo</li>
+            </ul>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
