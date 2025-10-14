@@ -174,14 +174,9 @@ const DeviceEntity = {
 
       if (error) throw error;
 
-      // If components_used exist, update component quantities
-      if (deviceData.components_used && deviceData.components_used.length > 0) {
-        for (const componentUsed of deviceData.components_used) {
-          await ComponentEntity.update(componentUsed.component_id, {
-            quantity: componentUsed.quantity - 1 // Simple consumption
-          });
-        }
-      }
+      // NOTE: Components usage disabled until schema full migration
+      // TODO: Update to use PURCHASE_ORDER_ITEMS instead
+      console.log('⚠️ Device components usage skipped - needs schema migration');
 
       return data;
     } catch (error) {
