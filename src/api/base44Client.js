@@ -527,8 +527,7 @@ const WarehouseEntity = {
         .from('warehouses')
         .insert([{
           ...warehouseData,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          created_at: new Date().toISOString()  // Solo created_at según schema
         }])
         .select()
         .single();
@@ -545,10 +544,7 @@ const WarehouseEntity = {
     try {
       const { data, error } = await supabase
         .from('warehouses')
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString()
-        })
+        .update(updates)  // Solo campos a actualizar, sin updated_at
         .eq('id', id)
         .select()
         .single();

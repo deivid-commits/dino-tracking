@@ -1,0 +1,38 @@
+# Build output
+dist/
+
+# Dependencies
+node_modules/
+
+# Environment
+.env.local
+.env.production
+.env.staging
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# EMI Tools (not needed for web app)
+*.py
+emi_*/
+rigol_*/
+debug_*/
+test_*/
+static/
+temp_source_repo/
+
+# Development
+.git/
+.gitignore
