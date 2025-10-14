@@ -527,6 +527,7 @@ const WarehouseEntity = {
         .from('warehouses')
         .insert([{
           ...warehouseData,
+          operators: warehouseData.operators || [], // Operadores embebidos como JSON
           created_at: new Date().toISOString()  // Solo created_at según schema
         }])
         .select()
