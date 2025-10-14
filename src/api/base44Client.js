@@ -309,15 +309,15 @@ const ToysEntity = {
 // Dinosaur Entity - Legacy compatibility (maps to TOYS but keeps old interface)
 const DinosaurEntity = ToysEntity;
 
-// DinosaurVersion Entity
-const DinosaurVersionEntity = {
-  async list(orderBy = '-created_date') {
+// BOM_VERSIONS Entity - Replaces DinosaurVersion for schema REAL compatibility
+const BomVersionsEntity = {
+  async list(orderBy = '-created_at') {
     try {
       let query = supabase
-        .from('dinosaur_versions')
+        .from('bom_versions')
         .select('*');
 
-      if (orderBy === '-created_date') {
+      if (orderBy === '-created_at') {
         query = query.order('created_at', { ascending: false });
       }
 
@@ -325,7 +325,7 @@ const DinosaurVersionEntity = {
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('Error fetching dinosaur versions:', error);
+      console.error('Error fetching BOM versions:', error);
       return [];
     }
   },
@@ -333,7 +333,7 @@ const DinosaurVersionEntity = {
   async create(versionData) {
     try {
       const { data, error } = await supabase
-        .from('dinosaur_versions')
+        .from('bom_versions')
         .insert([{
           ...versionData,
           created_at: new Date().toISOString(),
@@ -345,11 +345,34 @@ const DinosaurVersionEntity = {
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Error creating dinosaur version:', error);
+      console.error('Error creating BOM version:', error);
+      throw error;
+    }
+  },
+
+  async update(bomVersionId, updates) {
+    try {
+      const { data, error } = await supabase
+        .from('bom_versions')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('bom_version_id', bomVersionId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error updating BOM version:', error);
       throw error;
     }
   }
 };
+
+// LEGACY: DinosaurVersion maps to BomVersions for API compatibility
+const DinosaurVersionEntity = BomVersionsEntity;
 
 // PurchaseOrder Entity
 const PurchaseOrderEntity = {
@@ -752,10 +775,13 @@ export const base44 = {
   entities: {
     Component: PurchaseOrderItemEntity, // LEGACY: Component now maps to PurchaseOrderItem
     Device: DeviceEntity,
-    Dinosaur: DinosaurEntity,
-    DinosaurVersion: DinosaurVersionEntity,
+    Dinosaur: DinosaurEntity, // LEGACY: Maps to TOYS
+    DinosaurVersion: BomVersionsEntity, // LEGACY: Maps to BOM_VERSIONS
+    BomVersion: BomVersionsEntity, // NEW: Direct access
     PurchaseOrder: PurchaseOrderEntity,
+    PurchaseOrderItem: PurchaseOrderItemEntity, // NEW: Direct access
     Sale: SaleEntity,
+    Toy: ToysEntity, // NEW: Direct access to TOYS table
     Operator: OperatorEntity,
     Warehouse: WarehouseEntity,
     Shipment: ShipmentEntity,
