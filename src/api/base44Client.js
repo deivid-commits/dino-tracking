@@ -750,7 +750,7 @@ const AuthEntity = {
 // Export the base44 compatible object
 export const base44 = {
   entities: {
-    Component: ComponentEntity,
+    Component: PurchaseOrderItemEntity, // LEGACY: Component now maps to PurchaseOrderItem
     Device: DeviceEntity,
     Dinosaur: DinosaurEntity,
     DinosaurVersion: DinosaurVersionEntity,
