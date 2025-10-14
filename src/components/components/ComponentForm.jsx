@@ -10,139 +10,56 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { X, Save, Plus, Trash2 } from 'lucide-react';
-import { Component } from "@/api/entities";
+// REMOVED: Component entity - will use PURCHASE_ORDER_ITEMS instead
+// import { Component } from "@/api/entities";
 import { useWarehouse } from "@/components/WarehouseProvider";
 
+// TODO: Adaptar para schema REAL - usar PURCHASE_ORDER_ITEMS
+// Por ahora, temporalmente disabled hasta actualizar base44Client.js
 export default function ComponentForm({ component, onClose, onSave }) {
   const { t } = useLanguage();
   const { activeWarehouse } = useWarehouse();
   const isEditing = !!component;
 
   const [formData, setFormData] = useState(component || {
-    name: '',
-    description: '',
-    tracking_type: 'lote',
-    batches: [],
-    serial_numbers: [],
-    quantity: 0,
-    supplier: '',
-    category: 'otros'
+    component_sku: '',
+    component_description: '',
+    quantity_ordered: 0,
+    quantity_received: 0,
+    lot_number: '',
+    unit_price: 0,
+    supplier_name: '',
+    po_number: '',
+    line_number: 1
   });
 
-  // Batch input states
-  const [newBatchNumber, setNewBatchNumber] = useState('');
-  const [newBatchDescription, setNewBatchDescription] = useState('');
-  const [newBatchQuantity, setNewBatchQuantity] = useState('');
-
-  // Serial number input states
-  const [newSerialNumber, setNewSerialNumber] = useState('');
-  const [newSerialNotes, setNewSerialNotes] = useState('');
-
-  const [isSubmitting, setIsSubmitting] = useState(false); // Kept original state name for consistency with UI.
-  const [isSaving, setIsSaving] = useState(false); // Added for consistency with outline
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleAddBatch = () => {
-    if (!newBatchNumber.trim() || !newBatchQuantity) return;
-
-    const newBatch = {
-      batch_number: newBatchNumber.trim(),
-      description: newBatchDescription.trim(),
-      quantity: parseInt(newBatchQuantity),
-      created_date: new Date().toISOString()
-    };
-
-    const updatedBatches = [...(formData.batches || []), newBatch];
-    const totalQuantity = updatedBatches.reduce((sum, b) => sum + b.quantity, 0);
-
-    setFormData(prev => ({
-      ...prev,
-      batches: updatedBatches,
-      quantity: totalQuantity
-    }));
-
-    setNewBatchNumber('');
-    setNewBatchDescription('');
-    setNewBatchQuantity('');
-  };
-
-  const handleRemoveBatch = (index) => {
-    const updatedBatches = formData.batches.filter((_, i) => i !== index);
-    const totalQuantity = updatedBatches.reduce((sum, b) => sum + b.quantity, 0);
-
-    setFormData(prev => ({
-      ...prev,
-      batches: updatedBatches,
-      quantity: totalQuantity
-    }));
-  };
-
-  const handleAddSerial = () => {
-    if (!newSerialNumber.trim()) return;
-
-    const newSerial = {
-      serial_number: newSerialNumber.trim(),
-      notes: newSerialNotes.trim(),
-      created_date: new Date().toISOString()
-    };
-
-    const updatedSerials = [...(formData.serial_numbers || []), newSerial];
-
-    setFormData(prev => ({
-      ...prev,
-      serial_numbers: updatedSerials,
-      quantity: updatedSerials.length
-    }));
-
-    setNewSerialNumber('');
-    setNewSerialNotes('');
-  };
-
-  const handleRemoveSerial = (index) => {
-    const updatedSerials = formData.serial_numbers.filter((_, i) => i !== index);
-
-    setFormData(prev => ({
-      ...prev,
-      serial_numbers: updatedSerials,
-      quantity: updatedSerials.length
-    }));
-  };
-
   const handleSubmit = async (e) => {
-    e.preventDefault(); // Ensure event is handled
+    e.preventDefault();
 
-    if (!activeWarehouse) {
-      alert('Por favor selecciona un warehouse antes de crear o actualizar un componente.'); // Changed message to include update
-      return;
-    }
+    alert('⚠️ COMPONENTES TEMPORALMENTE DISABLED\n\nEsta funcionalidad necesita ser adaptada al schema REAL de traceability.\n\nLos componentes ahora se manejan como PURCHASE_ORDER_ITEMS, no como tabla separada.');
 
-    setIsSaving(true); // Use isSaving as per outline
-    setIsSubmitting(true); // Keep existing UI state
+    setIsSaving(true);
+    setIsSubmitting(true);
 
     try {
-      const componentData = {
-        warehouse_id: activeWarehouse.id,
-        name: formData.name,
-        description: formData.description,
-        tracking_type: formData.tracking_type,
-        // Conditionally set batches or serial_numbers based on tracking type
-        batches: formData.tracking_type === 'lote' ? formData.batches : [],
-        serial_numbers: formData.tracking_type === 'unidad' ? formData.serial_numbers : [],
-        quantity: formData.tracking_type === 'lote'
-          ? formData.batches.reduce((sum, b) => sum + (b.quantity || 0), 0)
-          : formData.serial_numbers.length,
-        supplier: formData.supplier,
-        category: formData.category
-      };
-
-      if (isEditing) {
-        await Component.update(component.id, componentData);
-      } else {
-        await Component.create(componentData);
-      }
+      // TODO: Implementar lógica para PURCHASE_ORDER_ITEMS
+      // const componentData = {
+      //   po_number: formData.po_number,
+      //   line_number: formData.line_number,
+      //   component_sku: formData.component_sku,
+      //   component_description: formData.component_description,
+      //   quantity_ordered: formData.quantity_ordered,
+      //   quantity_received: formData.quantity_received,
+      //   lot_number: formData.lot_number,
+      //   unit_price: formData.unit_price
+      // };
 
       if (onSave) onSave();
       onClose();
@@ -150,8 +67,8 @@ export default function ComponentForm({ component, onClose, onSave }) {
       console.error('Error saving component:', error);
       alert(`Error: ${error.message}`);
     } finally {
-      setIsSaving(false); // Use isSaving as per outline
-      setIsSubmitting(false); // Keep existing UI state
+      setIsSaving(false);
+      setIsSubmitting(false);
     }
   };
 

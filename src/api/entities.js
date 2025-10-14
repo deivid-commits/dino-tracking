@@ -1,8 +1,8 @@
 import { base44 } from './base44Client';
 
-// Re-export all entities to match base44 SDK exactly
-export const Component = base44.entities.Component;
-export const Dinosaur = base44.entities.Dinosaur;
+// Re-export all entities to match base44 SDK exactly - UPDATED FOR SCHEMA REAL
+export const Component = base44.entities.Component; // Now maps to PurchaseOrderItemEntity
+export const Dinosaur = base44.entities.Dinosaur; // Now maps to ToysEntity
 export const Sale = base44.entities.Sale;
 export const DinosaurVersion = base44.entities.DinosaurVersion;
 export const Device = base44.entities.Device;

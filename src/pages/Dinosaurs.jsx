@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from "react";
-import { Dinosaur, DinosaurVersion, Device } from "@/api/entities";
+// REMOVED: Old entities - will need TOYS adaptation
+// import { Dinosaur, DinosaurVersion, Device } from "@/api/entities";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -79,15 +80,17 @@ export default function DinosaurusPage() {
   }, [location.search, dinosaurs]);
 
   const loadData = async () => {
-    const [dinosaursData, versionsData] = await Promise.all([
-      Dinosaur.list('-created_date'),
-      DinosaurVersion.list('-created_date'),
-    ]);
-    
-    // Filtrar por warehouse
-    const filteredDinosaurs = filterByWarehouse(dinosaursData);
-    setDinosaurs(filteredDinosaurs);
-    setVersions(versionsData);
+    // TODO: Cambiar para usar TOYS y BOM_VERSIONS del schema REAL
+    // const [toysData, bomVersionsData] = await Promise.all([
+    //   Toy.list('-created_at'),
+    //   BOMVersion.list('-created_at'),
+    // ]);
+
+    // TEMP: Mostrar mensaje hasta que se actualice base44Client.js
+    console.log('⚠️ Dinosaurus page disabled - needs TOYS table adaptation');
+    alert('⚠️ DINOSAURS PAGE TEMPORALLY DISABLED\n\nEsta página necesita ser adaptada al schema REAL de traceability.\n\nLos dinosaurios ahora se almacenan como TOYS, no como dinosaurs.');
+    setDinosaurs([]);
+    setVersions([]);
   };
 
   const handleEditDinosaur = (dinosaur) => {
@@ -100,14 +103,16 @@ export default function DinosaurusPage() {
   };
 
   const handleUpdateDinosaur = async (updatedData) => {
-    try {
-      await Dinosaur.update(updatedData.id, updatedData);
-      handleCloseEditModal();
-      loadData();
-    } catch (error) {
-      console.error("Failed to update dinosaur:", error);
-      alert("Error updating dinosaur: " + error.message);
-    }
+    alert('⚠️ DINOSAUR UPDATE DISABLED\n\nEsta funcionalidad necesita ser adaptada al schema REAL.\n\nLos updates se harán en la tabla TOYS, no dinosaurs.');
+    // TODO: Implementar update para TOYS
+    // try {
+    //   await Toy.update(updatedData.serial_number, updatedData);
+    //   handleCloseEditModal();
+    //   loadData();
+    // } catch (error) {
+    //   console.error("Failed to update toy:", error);
+    //   alert("Error updating toy: " + error.message);
+    // }
   };
 
   const handleRfidScanChange = (e) => {
@@ -368,14 +373,16 @@ export default function DinosaurusPage() {
   };
 
   const handleDeleteDinosaur = async (dinosaur) => {
-    if (dinosaur.status === 'sold') {
-      alert(t('cannot_delete_sold_dinosaur'));
-      return;
-    }
-    if (window.confirm(t('confirm_delete_dinosaur', { rfid_code: dinosaur.rfid_code }))) {
-      await Dinosaur.delete(dinosaur.id);
-      loadData();
-    }
+    alert('⚠️ DINOSAUR DELETE DISABLED\n\nEsta funcionalidad necesita ser adaptada al schema REAL.\n\nLos toys se eliminan como TOYS, no dinosaurs.');
+    // TODO: Implementar delete para TOYS
+    // if (dinosaur.manufacturing_status === 'SHIPPED') {
+    //   alert(t('cannot_delete_shipped_toy'));
+    //   return;
+    // }
+    // if (window.confirm(t('confirm_delete_toy', { serial_number: dinosaur.serial_number }))) {
+    //   await Toy.delete(dinosaur.serial_number);
+    //   loadData();
+    // }
   };
   
   const goBackStep = () => {

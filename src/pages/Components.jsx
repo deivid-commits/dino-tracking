@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from "react";
-import { Component } from "@/api/entities";
+import { Component } from "@/api/entities"; // Now maps to PURCHASE_ORDER_ITEMS
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,8 @@ import { useWarehouse } from "@/components/WarehouseProvider";
 import ComponentForm from "../components/components/ComponentForm";
 import ComponentsList from "../components/components/ComponentsList";
 
+// TODO: Adaptar para schema REAL - usar PURCHASE_ORDER_ITEMS
+// Por ahora, mostrar mensaje de que está disabled
 export default function Components() {
   const { t } = useLanguage();
   const { activeWarehouse, filterByWarehouse } = useWarehouse();
@@ -30,10 +32,14 @@ export default function Components() {
   }, [activeWarehouse]); // Re-run when activeWarehouse changes
 
   const loadComponents = async () => {
-    const data = await Component.list('-created_date');
-    // Filtrar por warehouse
-    const filtered = filterByWarehouse(data);
-    setComponents(filtered);
+    try {
+      const data = await Component.list('-created_at');
+      const filtered = filterByWarehouse(data);
+      setComponents(filtered);
+    } catch (error) {
+      console.error('Error loading components:', error);
+      alert('Error cargando componentes: ' + error.message);
+    }
   };
 
   const handleEdit = (component) => {
@@ -53,10 +59,12 @@ export default function Components() {
   };
 
   const handleDelete = async (component) => {
-    if (window.confirm(t('confirm_delete_component', { componentName: component.name }))) {
-      await Component.delete(component.id);
-      loadComponents();
-    }
+    alert('⚠️ ELIMINACIÓN DISABLED\n\nLa eliminación de componentes necesita ser adaptada al schema REAL.\n\nLos componentes se eliminan como PURCHASE_ORDER_ITEMS.');
+    // TODO: Implementar eliminación como PURCHASE_ORDER_ITEMS
+    // if (window.confirm(t('confirm_delete_component', { componentName: component.component_sku }))) {
+    //   await PurchaseOrderItem.delete(component.po_item_id);
+    //   loadComponents();
+    // }
   };
 
   const filteredComponents = components.filter(component => {

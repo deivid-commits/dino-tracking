@@ -23,10 +23,35 @@ export default function OperatorLogin({ onLoginSuccess }) {
         setError('');
 
         try {
-            // Try code "2224" as default admin
+            // Check login with actual warehouse operators first
+            try {
+                // Import Warehouse entity inside function to avoid circular dependency
+                const { Warehouse } = await import('@/api/entities');
+                const warehouses = await Warehouse.list();
+
+                for (const warehouse of warehouses) {
+                    const operators = warehouse.operators || [];
+                    const operator = operators.find(op => op.code === code);
+
+                    if (operator) {
+                        const fullOperator = {
+                            ...operator,
+                            id: `${warehouse.id}-${operator.code}`,
+                            warehouse_id: warehouse.id,
+                            warehouse_name: warehouse.name
+                        };
+                        onLoginSuccess(fullOperator);
+                        return;
+                    }
+                }
+            } catch (dbErr) {
+                console.warn('Database lookup failed, using fallback:', dbErr);
+            }
+
+            // Fallback: hardcoded admin codes if DB fails
             if (code === '2224') {
                 const mockOperator = {
-                    id: 1,
+                    id: 'fallback-admin',
                     name: 'Administrator',
                     code: '2224',
                     is_admin: true,
@@ -36,33 +61,10 @@ export default function OperatorLogin({ onLoginSuccess }) {
                 return;
             }
 
-            // Try real database query
-            try {
-                const operators = await Operator.filter({ code: code });
-                if (operators.length > 0) {
-                    const operator = operators[0];
-                    onLoginSuccess(operator);
-                } else {
-                    setError('Código de operario inválido');
-                    setCode('');
-                }
-            } catch (dbErr) {
-                // If database fails, still allow 2224 and 1234 as test codes
-                if (code === '1234') {
-                    const mockOperator = {
-                        id: 2,
-                        name: 'Operator Test',
-                        code: '1234',
-                        is_admin: false,
-                        permissions: ['dashboard', 'components', 'dinosaurs', 'devices', 'inventory_management']
-                    };
-                    onLoginSuccess(mockOperator);
-                    return;
-                }
-                throw dbErr;
-            }
+            setError('Código de operario inválido');
+            setCode('');
         } catch (err) {
-            setError('Error al iniciar sesión - Usa código 2224 para admin o 1234 para operador');
+            setError('Error al iniciar sesión - Intenta con código 2224 para admin');
             console.error('Login error:', err);
         }
         setIsLoading(false);

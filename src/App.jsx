@@ -7,6 +7,7 @@ import { Toaster } from './components/ui/toaster';
 import './App.css';
 
 function App() {
+  // ✅ TODO LISTA - TABLES VERIFICADAS - REACTIVANDO APP NORMAL
   return (
     <BrowserRouter>
       <LanguageProvider>

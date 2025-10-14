@@ -19,26 +19,29 @@ const getCurrentLanguage = () => {
   return localStorage.getItem('dinotrack-language') || 'es';
 };
 
-// Component Entity - Full CRUD operations matching base44 SDK
-const ComponentEntity = {
-  async list(orderBy = '-created_date') {
+// PURCHASE_ORDER_ITEMS Entity - Replaces Component entity for schema compatibility
+const PurchaseOrderItemEntity = {
+  async list(orderBy = 'po_number') {
     try {
       let query = supabase
-        .from('components')
-        .select('*');
+        .from('purchase_order_items')
+        .select(`
+          *,
+          purchase_orders!inner(po_number, supplier_name)
+        `);
 
       // Apply ordering based on the parameter
-      if (orderBy === '-created_date') {
+      if (orderBy === 'po_number') {
+        query = query.order('po_number');
+      } else if (orderBy === '-created_at') {
         query = query.order('created_at', { ascending: false });
-      } else if (orderBy === 'name') {
-        query = query.order('name');
       }
 
       const { data, error } = await query;
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('Error fetching components:', error);
+      console.error('Error fetching purchase order items:', error);
       return [];
     }
   },
@@ -46,104 +49,84 @@ const ComponentEntity = {
   async search(query, filters = {}) {
     try {
       let supabaseQuery = supabase
-        .from('components')
-        .select('*');
+        .from('purchase_order_items')
+        .select(`
+          *,
+          purchase_orders!inner(po_number, supplier_name)
+        `);
 
       // Apply text search
       if (query) {
-        supabaseQuery = supabaseQuery.or(`name.ilike.%${query}%,part_number.ilike.%${query}%,description.ilike.%${query}%`);
+        supabaseQuery = supabaseQuery.or(`component_sku.ilike.%${query}%,component_description.ilike.%${query}%`);
       }
 
-      // Apply filters
-      if (filters.category) {
-        supabaseQuery = supabaseQuery.eq('category', filters.category);
-      }
-      if (filters.tracking_type) {
-        supabaseQuery = supabaseQuery.eq('tracking_type', filters.tracking_type);
-      }
-      if (filters.warehouse_id) {
-        supabaseQuery = supabaseQuery.eq('warehouse_id', filters.warehouse_id);
+      // Apply filters - adapt to schema
+      if (filters.po_number) {
+        supabaseQuery = supabaseQuery.eq('po_number', filters.po_number);
       }
 
       const { data, error } = await supabaseQuery;
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('Error searching components:', error);
+      console.error('Error searching purchase order items:', error);
       return [];
     }
   },
 
-  async create(componentData) {
+  async create(poItemData) {
     try {
       const { data, error } = await supabase
-        .from('components')
+        .from('purchase_order_items')
         .insert([{
-          ...componentData,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          ...poItemData,
+          created_at: new Date().toISOString()
         }])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Create batches if provided
-      if (componentData.batches) {
-        await supabase
-          .from('component_batches')
-          .insert(componentData.batches.map(batch => ({
-            component_id: data.id,
-            ...batch,
-            created_at: new Date().toISOString()
-          })));
-      }
-
-      return { ...data, batches: componentData.batches || [] };
-    } catch (error) {
-      console.error('Error creating component:', error);
-      throw error;
-    }
-  },
-
-  async update(id, updates) {
-    try {
-      const { data, error } = await supabase
-        .from('components')
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', id)
-        .select()
+        .select(`
+          *,
+          purchase_orders(po_number, supplier_name)
+        `)
         .single();
 
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Error updating component:', error);
+      console.error('Error creating purchase order item:', error);
       throw error;
     }
   },
 
-  async delete(id) {
+  async update(poItemId, updates) {
     try {
-      // First delete related batches
-      await supabase
-        .from('component_batches')
-        .delete()
-        .eq('component_id', id);
+      const { data, error } = await supabase
+        .from('purchase_order_items')
+        .update(updates)
+        .eq('po_item_id', poItemId)
+        .select(`
+          *,
+          purchase_orders(po_number, supplier_name)
+        `)
+        .single();
 
-      // Then delete the component
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error updating purchase order item:', error);
+      throw error;
+    }
+  },
+
+  async delete(poItemId) {
+    try {
       const { error } = await supabase
-        .from('components')
+        .from('purchase_order_items')
         .delete()
-        .eq('id', id);
+        .eq('po_item_id', poItemId);
 
       if (error) throw error;
       return true;
     } catch (error) {
-      console.error('Error deleting component:', error);
+      console.error('Error deleting purchase order item:', error);
       throw error;
     }
   }
@@ -223,33 +206,60 @@ const DeviceEntity = {
   }
 };
 
-// Dinosaur Entity
-const DinosaurEntity = {
-  async list(orderBy = '-created_date') {
+// TOYS Entity - Replaces Dinosaur entity for schema REAL compatibility
+const ToysEntity = {
+  async list(orderBy = '-created_at') {
     try {
       let query = supabase
-        .from('dinosaurs')
+        .from('toys')
         .select('*');
 
-      if (orderBy === '-created_date') {
+      if (orderBy === '-created_at') {
         query = query.order('created_at', { ascending: false });
+      } else if (orderBy === 'serial_number') {
+        query = query.order('serial_number');
       }
 
       const { data, error } = await query;
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('Error fetching dinosaurs:', error);
+      console.error('Error fetching toys:', error);
       return [];
     }
   },
 
-  async create(dinosaurData) {
+  async search(query, filters = {}) {
+    try {
+      let supabaseQuery = supabase
+        .from('toys')
+        .select('*');
+
+      // Apply text search
+      if (query) {
+        supabaseQuery = supabaseQuery.or(`serial_number.ilike.%${query}%,voice_box_id.ilike.%${query}%,sku.ilike.%${query}%`);
+      }
+
+      // Apply status filter
+      if (filters.manufacturing_status) {
+        supabaseQuery = supabaseQuery.eq('manufacturing_status', filters.manufacturing_status);
+      }
+
+      const { data, error } = await supabaseQuery;
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error searching toys:', error);
+      return [];
+    }
+  },
+
+  async create(toyData) {
     try {
       const { data, error } = await supabase
-        .from('dinosaurs')
+        .from('toys')
         .insert([{
-          ...dinosaurData,
+          ...toyData,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }])
@@ -259,31 +269,50 @@ const DinosaurEntity = {
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Error creating dinosaur:', error);
+      console.error('Error creating toy:', error);
       throw error;
     }
   },
 
-  async update(id, updates) {
+  async update(serialNumber, updates) {
+    // Updates by serial_number since that's the primary key in TOYS
     try {
       const { data, error } = await supabase
-        .from('dinosaurs')
+        .from('toys')
         .update({
           ...updates,
           updated_at: new Date().toISOString()
         })
-        .eq('id', id)
+        .eq('serial_number', serialNumber)
         .select()
         .single();
 
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Error updating dinosaur:', error);
+      console.error('Error updating toy:', error);
+      throw error;
+    }
+  },
+
+  async delete(serialNumber) {
+    try {
+      const { error } = await supabase
+        .from('toys')
+        .delete()
+        .eq('serial_number', serialNumber);
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error deleting toy:', error);
       throw error;
     }
   }
 };
+
+// Dinosaur Entity - Legacy compatibility (maps to TOYS but keeps old interface)
+const DinosaurEntity = ToysEntity;
 
 // DinosaurVersion Entity
 const DinosaurVersionEntity = {
