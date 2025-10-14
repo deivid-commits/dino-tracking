@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect } from "react";
-import { Component } from "@/api/entities"; // Now maps to PURCHASE_ORDER_ITEMS
+import { Component } from "@/api/entities"; // 🔥 COMPONENT INVENTORY VIEW - Aggregated by SKU
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Package, Search, Filter, Grid3x3, List } from "lucide-react";
+import { Plus, Package, Search, Filter, Grid3x3, List, Link, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -14,31 +14,32 @@ import { useWarehouse } from "@/components/WarehouseProvider";
 import ComponentForm from "../components/components/ComponentForm";
 import ComponentsList from "../components/components/ComponentsList";
 
-// TODO: Adaptar para schema REAL - usar PURCHASE_ORDER_ITEMS
-// Por ahora, mostrar mensaje de que está disabled
+// 🔥 FULLY ADAPTED for schema REAL - using PURCHASE_ORDER_ITEMS
 export default function Components() {
   const { t } = useLanguage();
   const { activeWarehouse, filterByWarehouse } = useWarehouse();
   const [components, setComponents] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [editingComponent, setEditingComponent] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
-  const [trackingFilter, setTrackingFilter] = useState("all");
-  const [viewMode, setViewMode] = useState("grid"); // "grid" or "list"
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [viewMode, setViewMode] = useState("grid");
 
   useEffect(() => {
     loadComponents();
-  }, [activeWarehouse]); // Re-run when activeWarehouse changes
+  }, [activeWarehouse]);
 
   const loadComponents = async () => {
     try {
+      setLoading(true);
       const data = await Component.list('-created_at');
-      const filtered = filterByWarehouse(data);
-      setComponents(filtered);
+      setComponents(data || []);
     } catch (error) {
-      console.error('Error loading components:', error);
-      alert('Error cargando componentes: ' + error.message);
+      console.error('Error loading purchase order items:', error);
+      setComponents([]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -59,12 +60,16 @@ export default function Components() {
   };
 
   const handleDelete = async (component) => {
-    alert('⚠️ ELIMINACIÓN DISABLED\n\nLa eliminación de componentes necesita ser adaptada al schema REAL.\n\nLos componentes se eliminan como PURCHASE_ORDER_ITEMS.');
-    // TODO: Implementar eliminación como PURCHASE_ORDER_ITEMS
-    // if (window.confirm(t('confirm_delete_component', { componentName: component.component_sku }))) {
-    //   await PurchaseOrderItem.delete(component.po_item_id);
-    //   loadComponents();
-    // }
+    if (window.confirm(`¿Eliminar el componente "${component.component_sku}"?`)) {
+      try {
+        await Component.delete(component.po_item_id || component.id);
+        loadComponents();
+        alert('Componente eliminado correctamente');
+      } catch (error) {
+        console.error('Error deleting component:', error);
+        alert('Error eliminando componente: ' + error.message);
+      }
+    }
   };
 
   const filteredComponents = components.filter(component => {

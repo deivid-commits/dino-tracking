@@ -19,7 +19,94 @@ const getCurrentLanguage = () => {
   return localStorage.getItem('dinotrack-language') || 'es';
 };
 
-// PURCHASE_ORDER_ITEMS Entity - Replaces Component entity for schema compatibility
+// 🔥 COMPONENT INVENTORY VIEW - Aggregated from PO Items by SKU
+// Shows components inventory by SKU with quantities from PO items
+const ComponentInventoryEntity = {
+  async list(orderBy = 'component_sku') {
+    try {
+      let query = supabase
+        .from('purchase_order_items')
+        .select(`
+          *,
+          purchase_orders!inner(po_number, supplier_name)
+        `);
+
+      // Apply ordering based on the parameter
+      if (orderBy === 'component_sku') {
+        query = query.order('component_sku');
+      } else if (orderBy === '-created_at') {
+        query = query.order('created_at', { ascending: false });
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      // 🔥 GROUP BY COMPONENT SKU - Aggregate quantities
+      const skuMap = {};
+      (data || []).forEach(item => {
+        const sku = item.component_sku;
+        if (!skuMap[sku]) {
+          skuMap[sku] = {
+            component_sku: sku,
+            component_description: item.component_description,
+            supplier_name: item.purchase_orders?.supplier_name || '',
+            total_quantity: 0,
+            unit_cost: item.unit_cost,
+            currency: item.currency || 'USD',
+            purchase_orders: [],
+            last_updated: item.created_at,
+            has_sku_association: item.has_sku_association || false // Flag for linked SKUs
+          };
+        }
+        skuMap[sku].total_quantity += item.quantity_ordered || 0;
+        skuMap[sku].purchase_orders.push({
+          po_number: item.purchase_orders?.po_number,
+          quantity: item.quantity_ordered,
+          received_date: item.created_at
+        });
+        // Update last_updated to most recent
+        if (item.created_at > skuMap[sku].last_updated) {
+          skuMap[sku].last_updated = item.created_at;
+        }
+      });
+
+      return Object.values(skuMap);
+    } catch (error) {
+      console.error('Error fetching component inventory:', error);
+      return [];
+    }
+  },
+
+  async getBySKU(sku) {
+    try {
+      const allItems = await this.list();
+      return allItems.find(item => item.component_sku === sku) || null;
+    } catch (error) {
+      console.error('Error fetching component by SKU:', error);
+      return null;
+    }
+  },
+
+  // Get all unique SKUs across PO items
+  async getUniqueSKUs() {
+    try {
+      const { data, error } = await supabase
+        .from('purchase_order_items')
+        .select('component_sku')
+        .not('component_sku', 'is', null);
+
+      if (error) throw error;
+
+      const uniqueSKUs = [...new Set(data.map(item => item.component_sku))];
+      return uniqueSKUs;
+    } catch (error) {
+      console.error('Error fetching unique SKUs:', error);
+      return [];
+    }
+  }
+};
+
+// Legacy PURCHASE_ORDER_ITEMS Entity - Direct access to PO items
 const PurchaseOrderItemEntity = {
   async list(orderBy = 'po_number') {
     try {
@@ -773,7 +860,8 @@ const AuthEntity = {
 // Export the base44 compatible object
 export const base44 = {
   entities: {
-    Component: PurchaseOrderItemEntity, // LEGACY: Component now maps to PurchaseOrderItem
+    Component: ComponentInventoryEntity, // 🔥 COMPONENT INVENTORY VIEW - Aggregated by SKU
+    ComponentItem: PurchaseOrderItemEntity, // Legacy PO items direct access
     Device: DeviceEntity,
     Dinosaur: DinosaurEntity, // LEGACY: Maps to TOYS
     DinosaurVersion: BomVersionsEntity, // LEGACY: Maps to BOM_VERSIONS
