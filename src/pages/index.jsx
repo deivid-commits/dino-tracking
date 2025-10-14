@@ -39,43 +39,43 @@ import WarehouseManagement from "./WarehouseManagement";
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
 
 const PAGES = {
-    
+
     Dashboard: Dashboard,
-    
+
     Components: Components,
-    
+
     Dinosaurs: Dinosaurs,
-    
+
     Sales: Sales,
-    
+
     Search: Search,
-    
+
     BOMManagement: BOMManagement,
-    
+
     Devices: Devices,
-    
+
     DinosaurVersions: DinosaurVersions,
-    
+
     QualityControl: QualityControl,
-    
+
     InventoryManagement: InventoryManagement,
-    
+
     OperatorManagement: OperatorManagement,
-    
+
     OperatorLogin: OperatorLogin,
-    
+
     Shipping: Shipping,
-    
+
     CountdownToChristmas: CountdownToChristmas,
-    
+
     QuickQC: QuickQC,
-    
+
     SlackBotDiagnostics: SlackBotDiagnostics,
-    
+
     FirebaseBackup: FirebaseBackup,
-    
+
     WarehouseManagement: WarehouseManagement,
-    
+
 }
 
 function _getCurrentPage(url) {
@@ -91,63 +91,28 @@ function _getCurrentPage(url) {
     return pageName || Object.keys(PAGES)[0];
 }
 
-// Create a wrapper component that uses useLocation inside the Router context
-function PagesContent() {
-    const location = useLocation();
-    const currentPage = _getCurrentPage(location.pathname);
-    
-    return (
-        <Layout currentPageName={currentPage}>
-            <Routes>            
-                
-                    <Route path="/" element={<Dashboard />} />
-                
-                
-                <Route path="/Dashboard" element={<Dashboard />} />
-                
-                <Route path="/Components" element={<Components />} />
-                
-                <Route path="/Dinosaurs" element={<Dinosaurs />} />
-                
-                <Route path="/Sales" element={<Sales />} />
-                
-                <Route path="/Search" element={<Search />} />
-                
-                <Route path="/BOMManagement" element={<BOMManagement />} />
-                
-                <Route path="/Devices" element={<Devices />} />
-                
-                <Route path="/DinosaurVersions" element={<DinosaurVersions />} />
-                
-                <Route path="/QualityControl" element={<QualityControl />} />
-                
-                <Route path="/InventoryManagement" element={<InventoryManagement />} />
-                
-                <Route path="/OperatorManagement" element={<OperatorManagement />} />
-                
-                <Route path="/OperatorLogin" element={<OperatorLogin />} />
-                
-                <Route path="/Shipping" element={<Shipping />} />
-                
-                <Route path="/CountdownToChristmas" element={<CountdownToChristmas />} />
-                
-                <Route path="/QuickQC" element={<QuickQC />} />
-                
-                <Route path="/SlackBotDiagnostics" element={<SlackBotDiagnostics />} />
-                
-                <Route path="/FirebaseBackup" element={<FirebaseBackup />} />
-                
-                <Route path="/WarehouseManagement" element={<WarehouseManagement />} />
-                
-            </Routes>
-        </Layout>
-    );
-}
-
 export default function Pages() {
     return (
-        <Router>
-            <PagesContent />
-        </Router>
+        <Routes>
+            <Route path="/" element={<Layout currentPageName="Dashboard"><Dashboard /></Layout>} />
+            <Route path="/Dashboard" element={<Layout currentPageName="Dashboard"><Dashboard /></Layout>} />
+            <Route path="/Components" element={<Layout currentPageName="Components"><Components /></Layout>} />
+            <Route path="/Dinosaurs" element={<Layout currentPageName="Dinosaurs"><Dinosaurs /></Layout>} />
+            <Route path="/Sales" element={<Layout currentPageName="Sales"><Sales /></Layout>} />
+            <Route path="/Search" element={<Layout currentPageName="Search"><Search /></Layout>} />
+            <Route path="/BOMManagement" element={<Layout currentPageName="BOMManagement"><BOMManagement /></Layout>} />
+            <Route path="/Devices" element={<Layout currentPageName="Devices"><Devices /></Layout>} />
+            <Route path="/DinosaurVersions" element={<Layout currentPageName="DinosaurVersions"><DinosaurVersions /></Layout>} />
+            <Route path="/QualityControl" element={<Layout currentPageName="QualityControl"><QualityControl /></Layout>} />
+            <Route path="/InventoryManagement" element={<Layout currentPageName="InventoryManagement"><InventoryManagement /></Layout>} />
+            <Route path="/OperatorManagement" element={<Layout currentPageName="OperatorManagement"><OperatorManagement /></Layout>} />
+            <Route path="/OperatorLogin" element={<OperatorLogin />} />
+            <Route path="/Shipping" element={<Layout currentPageName="Shipping"><Shipping /></Layout>} />
+            <Route path="/CountdownToChristmas" element={<CountdownToChristmas />} />
+            <Route path="/QuickQC" element={<Layout currentPageName="QuickQC"><QuickQC /></Layout>} />
+            <Route path="/SlackBotDiagnostics" element={<Layout currentPageName="SlackBotDiagnostics"><SlackBotDiagnostics /></Layout>} />
+            <Route path="/FirebaseBackup" element={<Layout currentPageName="FirebaseBackup"><FirebaseBackup /></Layout>} />
+            <Route path="/WarehouseManagement" element={<Layout currentPageName="WarehouseManagement"><WarehouseManagement /></Layout>} />
+        </Routes>
     );
 }

@@ -80,6 +80,7 @@ const translations = {
     device_id: 'Device ID',
     step_x_of_y: 'Step {current} of {total}',
     search_rfid_device_placeholder: 'Search by RFID or device ID...',
+    total_dinosaurs: 'Total: {count} dinosaurs',
     all_statuses: 'All Statuses',
     all_colors: 'All Colors',
     all_versions: 'All Versions',

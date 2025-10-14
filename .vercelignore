@@ -1,0 +1,15 @@
+node_modules
+.vercel
+.env
+.env.example
+.env.local
+.clinerules
+*.log
+.gitignore
+README.md
+package-lock.json
+yarn.lock
+.temp_source_repo
+emi_*
+*test*.py
+*python*

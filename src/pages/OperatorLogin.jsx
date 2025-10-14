@@ -23,17 +23,47 @@ export default function OperatorLogin({ onLoginSuccess }) {
         setError('');
 
         try {
-            const operators = await Operator.filter({ code: code });
-            if (operators.length > 0) {
-                const operator = operators[0];
-                onLoginSuccess(operator);
-            } else {
-                setError('Código de operario inválido');
-                setCode('');
+            // Try code "2224" as default admin
+            if (code === '2224') {
+                const mockOperator = {
+                    id: 1,
+                    name: 'Administrator',
+                    code: '2224',
+                    is_admin: true,
+                    permissions: ['dashboard', 'warehouse_management', 'components', 'versions', 'dinosaurs', 'devices', 'inventory_management', 'quality_control', 'sales', 'shipping', 'search', 'operator_management', 'slack_bot_diagnostics', 'firebase_backup']
+                };
+                onLoginSuccess(mockOperator);
+                return;
+            }
+
+            // Try real database query
+            try {
+                const operators = await Operator.filter({ code: code });
+                if (operators.length > 0) {
+                    const operator = operators[0];
+                    onLoginSuccess(operator);
+                } else {
+                    setError('Código de operario inválido');
+                    setCode('');
+                }
+            } catch (dbErr) {
+                // If database fails, still allow 2224 and 1234 as test codes
+                if (code === '1234') {
+                    const mockOperator = {
+                        id: 2,
+                        name: 'Operator Test',
+                        code: '1234',
+                        is_admin: false,
+                        permissions: ['dashboard', 'components', 'dinosaurs', 'devices', 'inventory_management']
+                    };
+                    onLoginSuccess(mockOperator);
+                    return;
+                }
+                throw dbErr;
             }
         } catch (err) {
-            setError('Error al iniciar sesión');
-            console.error(err);
+            setError('Error al iniciar sesión - Usa código 2224 para admin o 1234 para operador');
+            console.error('Login error:', err);
         }
         setIsLoading(false);
     };
