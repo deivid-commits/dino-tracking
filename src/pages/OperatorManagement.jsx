@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Operator } from "@/api/entities";
+import { Warehouse } from "@/api/entities";
 import { motion, AnimatePresence } from "framer-motion";
 import { Users, Shield, Loader2, PlusCircle, AlertTriangle } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
+import { useWarehouse } from "@/components/WarehouseProvider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import OperatorList from "@/components/operators/OperatorList";
@@ -10,6 +11,7 @@ import OperatorForm from "@/components/operators/OperatorForm";
 
 export default function OperatorManagement() {
   const { t } = useLanguage();
+  const { activeWarehouse, updateWarehouse } = useWarehouse();
   const [operators, setOperators] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedOperator, setSelectedOperator] = useState(null);
@@ -19,24 +21,27 @@ export default function OperatorManagement() {
   const loadOperators = async () => {
     setIsLoading(true);
     try {
-      const allOperators = await Operator.list();
-      setOperators(allOperators);
+      if (activeWarehouse) {
+        setOperators(activeWarehouse.operators || []);
+      } else {
+        setOperators([]);
+      }
     } catch (error) {
       console.error("Error fetching operator data:", error);
     }
     setIsLoading(false);
   };
-  
+
   useEffect(() => {
     loadOperators();
-  }, []);
+  }, [activeWarehouse]); // Reload when warehouse changes
 
   const handleEditOperator = (operator) => {
     setSelectedOperator(operator);
     setIsCreatingNew(false);
     setShowForm(true);
   };
-  
+
   const handleAddNewOperator = () => {
     setSelectedOperator(null);
     setIsCreatingNew(true);
@@ -51,10 +56,21 @@ export default function OperatorManagement() {
 
   const handleSaveOperator = async (operatorData) => {
     try {
+      if (!activeWarehouse) {
+        alert('Selecciona un warehouse primero');
+        return;
+      }
+
       if (isCreatingNew) {
-        await Operator.create(operatorData);
+        // Add new operator to warehouse operators JSON
+        const updatedOperators = [...(activeWarehouse.operators || []), operatorData];
+        await updateWarehouse(activeWarehouse.id, { operators: updatedOperators });
       } else {
-        await Operator.update(selectedOperator.id, operatorData);
+        // Update existing operator in warehouse operators JSON
+        const updatedOperators = (activeWarehouse.operators || []).map(op =>
+          op.code === selectedOperator.code ? operatorData : op
+        );
+        await updateWarehouse(activeWarehouse.id, { operators: updatedOperators });
       }
       loadOperators();
       handleCloseForm();
@@ -63,11 +79,14 @@ export default function OperatorManagement() {
       alert('Error guardando operario: ' + error.message);
     }
   };
-  
-  const handleDeleteOperator = async (operatorId) => {
+
+  const handleDeleteOperator = async (operatorCode) => {
       if (window.confirm('¿Estás seguro de que quieres eliminar este operario? Esta acción no se puede deshacer.')) {
           try {
-              await Operator.delete(operatorId);
+              if (!activeWarehouse) return;
+
+              const updatedOperators = (activeWarehouse.operators || []).filter(op => op.code !== operatorCode);
+              await updateWarehouse(activeWarehouse.id, { operators: updatedOperators });
               loadOperators();
           } catch(error) {
               console.error("Failed to delete operator:", error);
