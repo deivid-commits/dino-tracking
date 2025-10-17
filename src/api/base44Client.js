@@ -667,6 +667,7 @@ const BomVersionsEntity = {
 
       let updateData = otherUpdates;
 
+      // First update the non-JSON fields
       const { data, error } = await supabase
         .from('bom_versions')
         .update(updateData)
@@ -678,10 +679,15 @@ const BomVersionsEntity = {
 
       // If bom_recipe was provided, update it separately
       if (bom_recipe !== undefined) {
-        await supabase
+        const { error: bomError } = await supabase
           .from('bom_versions')
           .update({ bom_recipe })
           .eq('id', bomVersionId);
+
+        if (bomError) {
+          console.error('Error updating bom_recipe:', bomError);
+          throw bomError;
+        }
       }
 
       return data;
