@@ -51,16 +51,41 @@ export default function DinosaurVersionForm({ version, components = [], onCancel
   useEffect(() => {
     if (version && version.bom_recipe) {
       try {
-        const bomRecipe = Array.isArray(version.bom_recipe) ? version.bom_recipe : JSON.parse(version.bom_recipe);
-        const rehydratedComponents = bomRecipe.map((item) => ({
-          component_id: item.component_sku,
+        const bomRecipe = typeof version.bom_recipe === 'string' ? JSON.parse(version.bom_recipe) : version.bom_recipe;
+        console.log('🔄 Rehydrating version:', version.version_name, 'bom_recipe:', bomRecipe);
+
+        // Extract components from bom_recipe
+        const rehydratedComponents = (bomRecipe.components || []).map((item) => ({
+          component_id: item.component_sku || item.component_id,
           tracking_type: item.tracking_type || 'lote',
           required_quantity: Number(item.quantity || 1)
         }));
+
+        // Extract colors from generated_skus or available_colors (legacy)
+        const availableColors = [];
+        if (bomRecipe.generated_skus && Array.isArray(bomRecipe.generated_skus)) {
+          bomRecipe.generated_skus.forEach(sku => {
+            if (sku.color_code) {
+              availableColors.push({
+                name: sku.color_name || sku.color_code,
+                code: sku.color_code
+              });
+            }
+          });
+        }
+
+        // Update form data
         setFormData(prev => ({
           ...prev,
-          components: rehydratedComponents
+          model_name: bomRecipe.metadata?.model_name || prev.model_name,
+          sku_base: bomRecipe.metadata?.sku_base || prev.sku_base,
+          version_number: bomRecipe.metadata?.version_number || prev.version_number,
+          components: rehydratedComponents,
+          notes: bomRecipe.notes || prev.notes,
+          available_colors: availableColors
         }));
+
+        console.log('✅ Rehydrated data:', { components: rehydratedComponents, colors: availableColors });
       } catch (error) {
         console.warn('Could not parse bom_recipe for editing:', error);
       }
@@ -70,44 +95,77 @@ export default function DinosaurVersionForm({ version, components = [], onCancel
   const handleManualSave = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Generate the final SKU as version_name
-      const finalSKU = generateFullSKU(newColorCode || formData.available_colors?.[0]?.code || 'XX');
+      // ✅ GENERAR VARIOS SKUS POR COLOR: Una versión genera múltiples SKUs finales
+      const availableColors = formData.available_colors || [];
+      const generatedSKUs = [];
 
-      const versionPayload = {
-        version_name: finalSKU, // Save the generated SKU final as version_name
-        bom_recipe: {
-          components: (formData.components || []).map((c) => ({
-            component_sku: String(c.component_id),
-            quantity: Number(c.required_quantity || 1),
-            tracking_type: c.tracking_type || 'lote',
-          })),
-          notes: formData.notes || '', // Include notes in the bom_recipe JSON
+      if (availableColors.length > 0) {
+        // Si hay colores definitivos: generar SKUs únicos por color
+        availableColors.forEach(color => {
+          const sku = generateFullSKU(color.code);
+          if (sku) generatedSKUs.push({
+            sku,
+            color_name: color.name,
+            color_code: color.code
+          });
+        });
+      } else if (newColorCode && newColorCode.trim()) {
+        // Si hay un color temporal: usar esa para el primer SKU
+        const sku = generateFullSKU(newColorCode.trim());
+        if (sku) generatedSKUs.push({
+          sku,
+          color_name: newColorName || 'Temporal',
+          color_code: newColorCode.trim()
+        });
+      }
+
+      // ✅ VERSION BASE: Guardar como una sola entidad "versión" que contiene múltiples SKUs
+      const baseVersion = {
+        version_name: `${formData.sku_base}-BASE-${formData.version_number || "01"}`, // Nombre base para la versión
+        bom_recipe: JSON.stringify({
+          // 🎨 METADATA de la versión (no colores - ya están en los SKUs)
           metadata: {
             model_name: formData.model_name,
             sku_base: formData.sku_base,
             version_number: formData.version_number,
-            colors: formData.available_colors || []
+            created_at: new Date().toISOString()
+          },
+          // ⚙️ COMPONENTES universales de la versión (iguales para todos los colores)
+          components: (formData.components || []).map((c) => ({
+            component_sku: String(c.component_id),
+            quantity: Number(c.required_quantity || 1),
+            tracking_type: c.tracking_type || 'lote'
+          })),
+          // 📝 NOTAS de la versión
+          notes: formData.notes || '',
+          // 🎨 SKUS GENERADOS: Array de SKUs finales disponibles para esta versión
+          generated_skus: generatedSKUs,
+          // 📊 RESUMEN
+          summary: {
+            total_skus: generatedSKUs.length,
+            total_components: (formData.components || []).length,
+            last_updated: new Date().toISOString()
           }
-        },
+        }),
         bom_count: (formData.components || []).length,
         is_active: true
       };
 
+      console.log('🛠️ Saving version with generated SKUs:', generatedSKUs);
+      console.log('📦 Final payload:', baseVersion);
+
       if (formData.id) {
-        await DinosaurVersion.update(formData.id, versionPayload);
-      } else if (finalSKU && finalSKU.trim()) {
-        const createdVersion = await DinosaurVersion.create(versionPayload);
+        await DinosaurVersion.update(formData.id, baseVersion);
+      } else {
+        const createdVersion = await DinosaurVersion.create(baseVersion);
         if (createdVersion && createdVersion.id) {
           setFormData(prev => ({ ...prev, id: createdVersion.id }));
           initialDataRef.current = JSON.stringify({ ...formData, id: createdVersion.id });
         }
-      } else {
-        throw new Error("No se puede guardar: faltan campos requeridos (modelo y SKU base)");
       }
 
       setAutoSaveStatus("saved");
       setTimeout(() => setAutoSaveStatus(""), 2000);
-
       initialDataRef.current = JSON.stringify(formData);
       setHasUserMadeChanges(false);
 
@@ -119,52 +177,15 @@ export default function DinosaurVersionForm({ version, components = [], onCancel
     } finally {
       setIsLoading(false);
     }
-  }, [formData, newColorCode]);
+  }, [formData, newColorCode, newColorName]);
 
   const handleAutoSave = useCallback(async () => {
     if (!hasUserMadeChanges) return;
 
     try {
-      // Generate the final SKU as version_name
-      const finalSKU = generateFullSKU(newColorCode || formData.available_colors?.[0]?.code || 'XX');
-
-      const versionPayload = {
-        version_name: finalSKU, // Save the generated SKU final as version_name
-        bom_recipe: {
-          components: (formData.components || []).map((c) => ({
-            component_sku: String(c.component_id),
-            quantity: Number(c.required_quantity || 1),
-            tracking_type: c.tracking_type || 'lote',
-          })),
-          notes: formData.notes || '', // Include notes in the bom_recipe JSON
-          metadata: {
-            model_name: formData.model_name,
-            sku_base: formData.sku_base,
-            version_number: formData.version_number,
-            colors: formData.available_colors || []
-          }
-        },
-        bom_count: (formData.components || []).length,
-        is_active: true
-      };
-
-      if (formData.id) {
-        await DinosaurVersion.update(formData.id, versionPayload);
-      } else if (finalSKU && finalSKU.trim()) {
-        const createdVersion = await DinosaurVersion.create(versionPayload);
-        if (createdVersion && createdVersion.id) {
-          setFormData(prev => ({ ...prev, id: createdVersion.id }));
-          initialDataRef.current = JSON.stringify({ ...formData, id: createdVersion.id });
-        }
-      } else {
-        return;
-      }
-
-      setAutoSaveStatus("saved");
-      setTimeout(() => setAutoSaveStatus(""), 2000);
-
-      initialDataRef.current = JSON.stringify(formData);
-      setHasUserMadeChanges(false);
+      // ✅ DISABLE AUTO-SAVE to prevent flooding the backend
+      console.log('Auto-save disabled - use manual save instead');
+      return;
 
     } catch (error) {
       console.error("Auto-save failed:", error);

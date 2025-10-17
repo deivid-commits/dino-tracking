@@ -26,6 +26,13 @@ export default function DinosaurVersionsList({ versions, components = [], dinosa
 
   // Helper function to get version display name (SKU)
   const getVersionDisplayName = (version) => {
+    if (version.version_name && version.version_name.includes('-BASE-')) {
+      // Extract base info from version name
+      const baseMatch = version.version_name.match(/^(.+)-BASE-(\d+)$/);
+      if (baseMatch) {
+        return `${baseMatch[1]} (Base ${baseMatch[2]})`;
+      }
+    }
     return version.version_name || `Version ${version.id}`;
   };
 
@@ -212,19 +219,48 @@ export default function DinosaurVersionsList({ versions, components = [], dinosa
                       <div>
                           <h4 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
                               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01" /></svg>
-                              {t('units_made', { count: dinoCount })}
+                              SKUs Generados
                           </h4>
-                          {dinoCount > 0 ? (
-                              <div className="flex flex-wrap gap-2">
-                                  {Object.entries(colorStats).map(([color, count], index) => (
-                                      <Badge key={color} className={`capitalize ${colorShades[index % colorShades.length]}`}>
-                                          {color}: {count}
-                                      </Badge>
+                          {version.bom_recipe && (() => {
+                            try {
+                              const recipe = typeof version.bom_recipe === 'string' ? JSON.parse(version.bom_recipe) : version.bom_recipe;
+                              const skus = recipe.generated_skus || [];
+                              return skus.length > 0 ? (
+                                <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+                                  {skus.map((sku, index) => (
+                                    <div key={index} className="text-xs bg-white p-2 rounded-md shadow-sm">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <code className="bg-slate-100 px-2 py-0.5 rounded font-mono font-bold text-slate-700">
+                                          {sku.sku}
+                                        </code>
+                                        <Badge variant="outline" className="text-xs capitalize bg-purple-100 text-purple-800">
+                                          {sku.color_name}
+                                        </Badge>
+                                      </div>
+                                    </div>
                                   ))}
-                              </div>
-                          ) : (
-                              <p className="text-sm text-slate-500">{t('no_dinosaurs_registered_version')}</p>
-                          )}
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  <p className="text-sm text-slate-500">{t('no_dinosaurs_registered_version')}</p>
+                                  {dinoCount > 0 && (
+                                    <div className="flex flex-wrap gap-2">
+                                      <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+                                        ⚠️ Versiones anteriores sin SKUs generados
+                                      </p>
+                                      {Object.entries(colorStats).map(([color, count], index) => (
+                                        <Badge key={color} className={`capitalize ${colorShades[index % colorShades.length]}`}>
+                                          {color}: {count}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            } catch (error) {
+                              return <p className="text-sm text-slate-500">Error cargando SKUs</p>;
+                            }
+                          })()}
                       </div>
                     </div>
                   </motion.div>
