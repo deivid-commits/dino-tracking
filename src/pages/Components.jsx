@@ -12,6 +12,22 @@ import ComponentsList from "../components/components/ComponentsList";
 import ComponentForm from "../components/components/ComponentForm";
 
 // 🔥 COMPONENT SKU MANAGEMENT - Working with Purchase Order Items Inventory
+
+const handleDelete = async (component) => {
+  if (!window.confirm(`¿Estás seguro de eliminar el componente "${component.component_sku}"?`)) {
+    return;
+  }
+
+  try {
+    console.log('🗑️ Deleting component:', component);
+    await Component.delete(component.component_sku);
+    console.log('✅ Component deleted successfully');
+    loadComponents();  // Re-load components after deletion
+  } catch (error) {
+    console.error('❌ Error eliminando componente:', error);
+    alert('Error al eliminar componente: ' + error.message);
+  }
+};
 export default function Components() {
   const { t } = useL(); // Use the imported useL hook
   const [components, setComponents] = useState([]);
@@ -139,7 +155,7 @@ export default function Components() {
               <ComponentsList
                 components={filteredComponents}
                 onEdit={() => {}}
-                onDelete={() => {}}
+                onDelete={handleDelete}
                 viewMode={viewMode}
               />
             </div>
