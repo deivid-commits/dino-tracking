@@ -32,8 +32,6 @@ import QuickQC from "./QuickQC";
 
 import SlackBotDiagnostics from "./SlackBotDiagnostics";
 
-import FirebaseBackup from "./FirebaseBackup";
-
 import WarehouseManagement from "./WarehouseManagement";
 
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
@@ -69,10 +67,6 @@ const PAGES = {
     CountdownToChristmas: CountdownToChristmas,
 
     QuickQC: QuickQC,
-
-    SlackBotDiagnostics: SlackBotDiagnostics,
-
-    FirebaseBackup: FirebaseBackup,
 
     WarehouseManagement: WarehouseManagement,
 
@@ -110,8 +104,7 @@ export default function Pages() {
             <Route path="/Shipping" element={<Layout currentPageName="Shipping"><Shipping /></Layout>} />
             <Route path="/CountdownToChristmas" element={<CountdownToChristmas />} />
             <Route path="/QuickQC" element={<Layout currentPageName="QuickQC"><QuickQC /></Layout>} />
-            <Route path="/SlackBotDiagnostics" element={<Layout currentPageName="SlackBotDiagnostics"><SlackBotDiagnostics /></Layout>} />
-            <Route path="/FirebaseBackup" element={<Layout currentPageName="FirebaseBackup"><FirebaseBackup /></Layout>} />
+            {/* SlackBotDiagnostics and FirebaseBackup removed as requested */}
             <Route path="/WarehouseManagement" element={<Layout currentPageName="WarehouseManagement"><WarehouseManagement /></Layout>} />
         </Routes>
     );

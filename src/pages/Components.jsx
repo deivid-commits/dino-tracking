@@ -1,39 +1,33 @@
 
 import React, { useState, useEffect } from "react";
 import { Component } from "@/api/entities"; // 🔥 COMPONENT INVENTORY VIEW - Aggregated by SKU
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Plus, Package, Search, Filter, Grid3x3, List, Link, AlertTriangle } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { Package, Search, Grid3x3, List, Plus } from "lucide-react";
+import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useLanguage } from "@/components/LanguageProvider";
-import { useWarehouse } from "@/components/WarehouseProvider";
+import { useLanguage as useL } from "@/components/LanguageProvider";
 
-import ComponentForm from "../components/components/ComponentForm";
 import ComponentsList from "../components/components/ComponentsList";
+import ComponentForm from "../components/components/ComponentForm";
 
-// 🔥 FULLY ADAPTED for schema REAL - using PURCHASE_ORDER_ITEMS
+// 🔥 COMPONENT SKU MANAGEMENT - Working with Purchase Order Items Inventory
 export default function Components() {
-  const { t } = useLanguage();
-  const { activeWarehouse, filterByWarehouse } = useWarehouse();
+  const { t } = useL(); // Use the imported useL hook
   const [components, setComponents] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [editingComponent, setEditingComponent] = useState(null);
-  const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
   const [viewMode, setViewMode] = useState("grid");
+  const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
     loadComponents();
-  }, [activeWarehouse]);
+  }, []); // Remove activeWarehouse dependency since we removed useWarehouse
 
   const loadComponents = async () => {
     try {
       setLoading(true);
-      const data = await Component.list('-created_at');
+      const data = await Component.list('component_sku');
       setComponents(data || []);
     } catch (error) {
       console.error('Error loading purchase order items:', error);
@@ -43,47 +37,13 @@ export default function Components() {
     }
   };
 
-  const handleEdit = (component) => {
-    setEditingComponent(component);
-    setShowForm(true);
-  };
-  
-  const handleAddNew = () => {
-    setEditingComponent(null);
-    setShowForm(true);
-  };
-
-  const handleCloseForm = () => {
-    setShowForm(false);
-    setEditingComponent(null);
-    loadComponents();
-  };
-
-  const handleDelete = async (component) => {
-    if (window.confirm(`¿Eliminar el componente "${component.component_sku}"?`)) {
-      try {
-        await Component.delete(component.po_item_id || component.id);
-        loadComponents();
-        alert('Componente eliminado correctamente');
-      } catch (error) {
-        console.error('Error deleting component:', error);
-        alert('Error eliminando componente: ' + error.message);
-      }
-    }
-  };
-
   const filteredComponents = components.filter(component => {
     const lowerSearchTerm = searchTerm.toLowerCase();
-    const matchesSearch = searchTerm === "" ||
-      (component.name && component.name.toLowerCase().includes(lowerSearchTerm)) ||
-      (component.description && component.description.toLowerCase().includes(lowerSearchTerm)) ||
-      (component.supplier && component.supplier.toLowerCase().includes(lowerSearchTerm)) ||
-      (component.batches && component.batches.some(b => b.batch_number && b.batch_number.toLowerCase().includes(lowerSearchTerm))) ||
-      (component.serial_numbers && component.serial_numbers.some(s => s.serial_number && s.serial_number.toLowerCase().includes(lowerSearchTerm)));
-        
-    const matchesCategory = categoryFilter === "all" || component.category === categoryFilter;
-    const matchesTracking = trackingFilter === "all" || component.tracking_type === trackingFilter;
-    return matchesSearch && matchesCategory && matchesTracking;
+    return (
+      searchTerm === "" ||
+      (component.component_sku && component.component_sku.toLowerCase().includes(lowerSearchTerm)) ||
+      (component.component_description && component.component_description.toLowerCase().includes(lowerSearchTerm))
+    );
   });
 
   return (
@@ -103,26 +63,16 @@ export default function Components() {
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="w-full lg:w-auto flex gap-3"
           >
             <Button 
-              onClick={handleAddNew}
-              className="flex-1 lg:flex-none bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg"
+              onClick={() => setShowForm(true)}
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg"
             >
-              <Plus className="w-5 h-5 mr-2" />
-              {t('add_component')}
+              <Plus className="w-4 h-4 mr-2" />
+              Añadir Nuevo SKU
             </Button>
           </motion.div>
         </div>
-
-        <AnimatePresence>
-          {showForm && (
-            <ComponentForm
-              component={editingComponent}
-              onClose={handleCloseForm}
-            />
-          )}
-        </AnimatePresence>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -142,51 +92,20 @@ export default function Components() {
                 />
               </div>
             </div>
-            <div className="flex gap-3">
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-40 bg-white/50">
-                  <SelectValue placeholder={t('category')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('all')}</SelectItem>
-                  <SelectItem value="chips">{t('chips')}</SelectItem>
-                  <SelectItem value="baterias">{t('batteries')}</SelectItem>
-                  <SelectItem value="sensores">{t('sensors')}</SelectItem>
-                  <SelectItem value="motores">{t('motors')}</SelectItem>
-                  <SelectItem value="estructuras">{t('structures')}</SelectItem>
-                  <SelectItem value="otros">{t('others')}</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={trackingFilter} onValueChange={setTrackingFilter}>
-                <SelectTrigger className="w-40 bg-white/50">
-                  <SelectValue placeholder={t('tracking')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('all')}</SelectItem>
-                  <SelectItem value="lote">{t('by_batch')}</SelectItem>
-                  <SelectItem value="unidad">{t('by_unit')}</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              {/* View Mode Toggle */}
-              <div className="flex gap-1 bg-white/50 rounded-lg p-1">
-                <Button
-                  variant={viewMode === "grid" ? "default" : "ghost"}
-                  size="icon"
-                  onClick={() => setViewMode("grid")}
-                  className={viewMode === "grid" ? "bg-blue-600 hover:bg-blue-700" : ""}
-                >
-                  <Grid3x3 className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant={viewMode === "list" ? "default" : "ghost"}
-                  size="icon"
-                  onClick={() => setViewMode("list")}
-                  className={viewMode === "list" ? "bg-blue-600 hover:bg-blue-700" : ""}
-                >
-                  <List className="w-4 h-4" />
-                </Button>
-              </div>
+            {/* View Mode Toggle */}
+            <div className="flex gap-1 bg-white/50 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode("grid")}
+                className={`p-2 rounded ${viewMode === "grid" ? "bg-blue-600 text-white" : "text-slate-400"}`}
+              >
+                <Grid3x3 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode("list")}
+                className={`p-2 rounded ${viewMode === "list" ? "bg-blue-600 text-white" : "text-slate-400"}`}
+              >
+                <List className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </motion.div>
@@ -196,13 +115,47 @@ export default function Components() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
         >
-          <ComponentsList 
-            components={filteredComponents}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            viewMode={viewMode}
-          />
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="text-slate-600 mt-4">Cargando componentes...</p>
+            </div>
+          ) : components.length === 0 ? (
+            <Card className="p-12 text-center">
+              <Package className="w-16 h-16 mx-auto mb-4 text-slate-400" />
+              <CardTitle className="mb-2">No hay SKUs en el catálogo</CardTitle>
+              <p className="text-slate-600 mb-6">
+                Agrega SKUs al catálogo (toy_components) para construir versiones (BOM).
+              </p>
+              <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => setShowForm(true)}>
+                Añadir SKU
+              </Button>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              <div className="text-sm text-slate-600">
+                Mostrando {filteredComponents.length} SKUs en catálogo
+              </div>
+              <ComponentsList
+                components={filteredComponents}
+                onEdit={() => {}}
+                onDelete={() => {}}
+                viewMode={viewMode}
+              />
+            </div>
+          )}
         </motion.div>
+
+        {/* Component Form Modal */}
+        {showForm && (
+          <ComponentForm
+            onClose={() => setShowForm(false)}
+            onSave={() => {
+              loadComponents();
+              setShowForm(false);
+            }}
+          />
+        )}
       </div>
     </div>
   );

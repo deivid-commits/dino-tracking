@@ -28,12 +28,17 @@ export default function DinosaurVersionsPage() {
     const [versionsData, dinosaursData, componentsData] = await Promise.all([
       DinosaurVersion.list('-created_date'),
       Dinosaur.list('-created_date'),
-      Component.list('-created_date'),
+      Component.list('component_sku'),
     ]);
     
     setVersions(versionsData);
     setDinosaurs(dinosaursData);
-    setComponents(componentsData);
+    const mappedComponents = (componentsData || []).map(c => ({
+      id: c.component_sku,
+      name: c.component_sku + (c.component_description ? ` - ${c.component_description}` : ''),
+      tracking_type: 'lote'
+    }));
+    setComponents(mappedComponents);
 
     const counts = {};
     dinosaursData.forEach(dino => {
@@ -74,7 +79,7 @@ export default function DinosaurVersionsPage() {
 
   const handleDuplicateVersion = async (version) => {
     const newName = prompt(t('enter_duplicate_version_name'), `${version.model_name} - ${t('copy')}`);
-    
+
     if (!newName || newName.trim() === '') {
       return;
     }
@@ -89,12 +94,13 @@ export default function DinosaurVersionsPage() {
         model_name: newName.trim(),
         components: [...(version.components || [])],
         available_colors: [...(version.available_colors || [])],
-        notes: version.notes ? `${version.notes}\n\n[${t('duplicated_from')}: ${version.model_name}]` : `${t('duplicated_from')}: ${version.model_name}`
+        notes: version.notes ? `${version.notes}\n\n[${t('duplicated_from')}: ${version.model_name}]` : `${t('duplicated_from')}: ${version.model_name}`,
+        bom_recipe: version.bom_recipe ? JSON.parse(JSON.stringify(version.bom_recipe)) : []
       };
 
       await DinosaurVersion.create(duplicatedVersion);
       loadData();
-      
+
       alert(t('version_duplicated_successfully', { newName: newName, originalName: version.model_name }));
     } catch (error) {
       console.error("Error duplicating version:", error);

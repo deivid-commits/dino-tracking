@@ -24,6 +24,11 @@ export default function DinosaurVersionsList({ versions, components = [], dinosa
     return component?.name || componentId;
   };
 
+  // Helper function to get version display name (SKU)
+  const getVersionDisplayName = (version) => {
+    return version.version_name || `Version ${version.id}`;
+  };
+
   // Helper function to get tracking type label
   const getTrackingTypeLabel = (trackingType) => {
     return trackingType === 'lote' ? t('by_batch') : 
@@ -69,10 +74,10 @@ export default function DinosaurVersionsList({ versions, components = [], dinosa
                       <Layers className="w-6 h-6 text-purple-600" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-slate-800 text-lg">{version.model_name}</h3>
+                      <h3 className="font-bold text-slate-800 text-lg font-mono">{getVersionDisplayName(version)}</h3>
                       <div className="flex items-center gap-2 text-sm text-slate-500 mt-1">
                         <Calendar className="w-4 h-4" />
-                        <span>{t('created_on')} {format(new Date(version.created_date), "MM/dd/yyyy")}</span>
+                        <span>{t('created_on')} {version.created_date ? format(new Date(version.created_date), "MM/dd/yyyy") : 'N/A'}</span>
                       </div>
                     </div>
                   </div>
@@ -154,23 +159,31 @@ export default function DinosaurVersionsList({ versions, components = [], dinosa
                           <Package className="w-5 h-5" />
                           {t('components_count', { count: version.components?.length || 0 })}
                         </h4>
-                        {version.components && version.components.length > 0 ? (
-                          <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
-                            {version.components.map((comp, index) => (
-                              <div key={index} className="text-sm bg-white p-2 rounded-md shadow-sm">
-                                <p className="font-semibold">{getComponentName(comp.component_id)}</p>
-                                <p className="text-slate-600 text-xs">
-                                  {t('tracking')}: {getTrackingTypeLabel(comp.tracking_type)}
-                                </p>
-                                <p className="text-xs text-slate-500 italic mt-1">
-                                  {t('batches_selected_in_wip')}
-                                </p>
+                        {version.bom_recipe && (() => {
+                          try {
+                            const recipe = typeof version.bom_recipe === 'string' ? JSON.parse(version.bom_recipe) : version.bom_recipe;
+                            const componentsList = recipe.components || [];
+                            return componentsList.length > 0 ? (
+                              <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+                                {componentsList.map((comp, index) => (
+                                  <div key={index} className="text-sm bg-white p-2 rounded-md shadow-sm">
+                                    <p className="font-semibold">{getComponentName(comp.component_sku)}</p>
+                                    <p className="text-slate-600 text-xs">
+                                      {t('tracking')}: {getTrackingTypeLabel(comp.tracking_type)}
+                                    </p>
+                                    <p className="text-xs text-slate-500 italic mt-1">
+                                      {t('quantity')}: {Number(comp.quantity || 1)} - {t('batches_selected_in_wip')}
+                                    </p>
+                                  </div>
+                                ))}
                               </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-sm text-slate-500">{t('no_components_configured')}</p>
-                        )}
+                            ) : (
+                              <p className="text-sm text-slate-500">{t('no_components_configured')}</p>
+                            );
+                          } catch (error) {
+                            return <p className="text-sm text-slate-500">{t('error_loading_components')}</p>;
+                          }
+                        })()}
                       </div>
                       
                       <div>
@@ -178,9 +191,22 @@ export default function DinosaurVersionsList({ versions, components = [], dinosa
                           <FileText className="w-5 h-5" />
                           {t('notes')}
                         </h4>
-                        <p className="text-sm text-slate-600 bg-white p-3 rounded-md shadow-sm min-h-[4rem]">
-                          {version.notes || t('no_notes_version')}
-                        </p>
+                        {version.bom_recipe && (() => {
+                          try {
+                            const recipe = typeof version.bom_recipe === 'string' ? JSON.parse(version.bom_recipe) : version.bom_recipe;
+                            return (
+                              <p className="text-sm text-slate-600 bg-white p-3 rounded-md shadow-sm min-h-[4rem]">
+                                {recipe.notes || t('no_notes_version')}
+                              </p>
+                            );
+                          } catch (error) {
+                            return (
+                              <p className="text-sm text-slate-600 bg-white p-3 rounded-md shadow-sm min-h-[4rem]">
+                                {t('error_loading_notes')}
+                              </p>
+                            );
+                          }
+                        })()}
                       </div>
 
                       <div>

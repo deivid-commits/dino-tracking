@@ -29,7 +29,7 @@ export default function InventoryManagement() {
         </motion.div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
             <TabsTrigger value="purchase-orders" className="flex items-center gap-2">
               <ClipboardList className="w-4 h-4" />
               <span className="hidden sm:inline">{t('purchase_orders')}</span>
@@ -44,11 +44,6 @@ export default function InventoryManagement() {
               <Package className="w-4 h-4" />
               <span className="hidden sm:inline">{t('stock_control')}</span>
               <span className="sm:hidden">Stock</span>
-            </TabsTrigger>
-            <TabsTrigger value="production-plan" className="flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              <span className="hidden sm:inline">{t('production_plan')}</span>
-              <span className="sm:hidden">Plan</span>
             </TabsTrigger>
           </TabsList>
 

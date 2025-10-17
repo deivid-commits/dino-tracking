@@ -37,6 +37,7 @@ export default function DinosaurVersionForm({ version, components = [], onCancel
 
   // State for manual component selection
   const [selectedComponentId, setSelectedComponentId] = useState("");
+  const [requiredQty, setRequiredQty] = useState(1);
 
   const saveTimeoutRef = useRef(null);
   const initialDataRef = useRef(JSON.stringify(version || {}));
@@ -46,14 +47,111 @@ export default function DinosaurVersionForm({ version, components = [], onCancel
     setAvailableComponents(components);
   }, [components]); // Depend on components prop to update if it changes
 
+  // Rehydrate bom_recipe when editing an existing version
+  useEffect(() => {
+    if (version && version.bom_recipe) {
+      try {
+        const bomRecipe = Array.isArray(version.bom_recipe) ? version.bom_recipe : JSON.parse(version.bom_recipe);
+        const rehydratedComponents = bomRecipe.map((item) => ({
+          component_id: item.component_sku,
+          tracking_type: item.tracking_type || 'lote',
+          required_quantity: Number(item.quantity || 1)
+        }));
+        setFormData(prev => ({
+          ...prev,
+          components: rehydratedComponents
+        }));
+      } catch (error) {
+        console.warn('Could not parse bom_recipe for editing:', error);
+      }
+    }
+  }, [version]);
+
+  const handleManualSave = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      // Generate the final SKU as version_name
+      const finalSKU = generateFullSKU(newColorCode || formData.available_colors?.[0]?.code || 'XX');
+
+      const versionPayload = {
+        version_name: finalSKU, // Save the generated SKU final as version_name
+        bom_recipe: {
+          components: (formData.components || []).map((c) => ({
+            component_sku: String(c.component_id),
+            quantity: Number(c.required_quantity || 1),
+            tracking_type: c.tracking_type || 'lote',
+          })),
+          notes: formData.notes || '', // Include notes in the bom_recipe JSON
+          metadata: {
+            model_name: formData.model_name,
+            sku_base: formData.sku_base,
+            version_number: formData.version_number,
+            colors: formData.available_colors || []
+          }
+        },
+        bom_count: (formData.components || []).length,
+        is_active: true
+      };
+
+      if (formData.id) {
+        await DinosaurVersion.update(formData.id, versionPayload);
+      } else if (finalSKU && finalSKU.trim()) {
+        const createdVersion = await DinosaurVersion.create(versionPayload);
+        if (createdVersion && createdVersion.id) {
+          setFormData(prev => ({ ...prev, id: createdVersion.id }));
+          initialDataRef.current = JSON.stringify({ ...formData, id: createdVersion.id });
+        }
+      } else {
+        throw new Error("No se puede guardar: faltan campos requeridos (modelo y SKU base)");
+      }
+
+      setAutoSaveStatus("saved");
+      setTimeout(() => setAutoSaveStatus(""), 2000);
+
+      initialDataRef.current = JSON.stringify(formData);
+      setHasUserMadeChanges(false);
+
+    } catch (error) {
+      console.error("Manual save failed:", error);
+      setAutoSaveStatus("error");
+      setTimeout(() => setAutoSaveStatus(""), 2000);
+      alert('Error al guardar: ' + error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [formData, newColorCode]);
+
   const handleAutoSave = useCallback(async () => {
     if (!hasUserMadeChanges) return;
 
     try {
+      // Generate the final SKU as version_name
+      const finalSKU = generateFullSKU(newColorCode || formData.available_colors?.[0]?.code || 'XX');
+
+      const versionPayload = {
+        version_name: finalSKU, // Save the generated SKU final as version_name
+        bom_recipe: {
+          components: (formData.components || []).map((c) => ({
+            component_sku: String(c.component_id),
+            quantity: Number(c.required_quantity || 1),
+            tracking_type: c.tracking_type || 'lote',
+          })),
+          notes: formData.notes || '', // Include notes in the bom_recipe JSON
+          metadata: {
+            model_name: formData.model_name,
+            sku_base: formData.sku_base,
+            version_number: formData.version_number,
+            colors: formData.available_colors || []
+          }
+        },
+        bom_count: (formData.components || []).length,
+        is_active: true
+      };
+
       if (formData.id) {
-        await DinosaurVersion.update(formData.id, formData);
-      } else if (formData.model_name && formData.model_name.trim() && formData.sku_base && formData.sku_base.trim()) {
-        const createdVersion = await DinosaurVersion.create(formData);
+        await DinosaurVersion.update(formData.id, versionPayload);
+      } else if (finalSKU && finalSKU.trim()) {
+        const createdVersion = await DinosaurVersion.create(versionPayload);
         if (createdVersion && createdVersion.id) {
           setFormData(prev => ({ ...prev, id: createdVersion.id }));
           initialDataRef.current = JSON.stringify({ ...formData, id: createdVersion.id });
@@ -61,19 +159,19 @@ export default function DinosaurVersionForm({ version, components = [], onCancel
       } else {
         return;
       }
-      
+
       setAutoSaveStatus("saved");
       setTimeout(() => setAutoSaveStatus(""), 2000);
-      
+
       initialDataRef.current = JSON.stringify(formData);
       setHasUserMadeChanges(false);
-      
+
     } catch (error) {
       console.error("Auto-save failed:", error);
       setAutoSaveStatus("error");
       setTimeout(() => setAutoSaveStatus(""), 2000);
     }
-  }, [formData, hasUserMadeChanges]);
+  }, [formData, hasUserMadeChanges, newColorCode]);
 
   useEffect(() => {
     const currentDataString = JSON.stringify(formData);
@@ -121,7 +219,8 @@ export default function DinosaurVersionForm({ version, components = [], onCancel
         ...prev,
         components: [...(prev.components || []), {
           component_id: componentData.component_id,
-          tracking_type: componentData.tracking_type
+          tracking_type: componentData.tracking_type,
+          required_quantity: Number(componentData.required_quantity || 1)
         }]
       }));
       setError(null);
@@ -134,10 +233,12 @@ export default function DinosaurVersionForm({ version, components = [], onCancel
 
     addComponentToVersion({
       component_id: component.id,
-      tracking_type: component.tracking_type
+      tracking_type: component.tracking_type,
+      required_quantity: Number(requiredQty || 1)
     });
     
     setSelectedComponentId("");
+    setRequiredQty(1);
   };
 
   const removeComponent = (index) => {
@@ -360,7 +461,7 @@ export default function DinosaurVersionForm({ version, components = [], onCancel
               <div className="bg-slate-50 p-4 rounded-lg border space-y-4">
                 <div>
                   <p className="text-sm text-slate-600 mb-2">{t('select_components_for_version')}</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <Select value={selectedComponentId} onValueChange={setSelectedComponentId}>
                       <SelectTrigger className="bg-white/70">
                         <SelectValue placeholder={t('select_component')} />
@@ -373,7 +474,14 @@ export default function DinosaurVersionForm({ version, components = [], onCancel
                         ))}
                       </SelectContent>
                     </Select>
-                    
+                    <Input
+                      type="number"
+                      min={1}
+                      value={requiredQty}
+                      onChange={(e) => setRequiredQty(Math.max(1, parseInt(e.target.value || '1', 10)))}
+                      className="bg-white/70"
+                      placeholder={t('quantity_po')}
+                    />
                     <Button 
                       type="button"
                       onClick={handleAddComponentManually}
@@ -401,6 +509,9 @@ export default function DinosaurVersionForm({ version, components = [], onCancel
                         </Badge>
                         <Badge variant="outline" className="text-xs">
                           {getTrackingTypeLabel(component.tracking_type)}
+                        </Badge>
+                        <Badge variant="outline" className="text-xs font-mono">
+                          x{Number(component.required_quantity || 1)}
                         </Badge>
                       </div>
                       <Button
@@ -439,6 +550,24 @@ export default function DinosaurVersionForm({ version, components = [], onCancel
               >
                 <X className="w-4 h-4 mr-2" />
                 {t('cancel')}
+              </Button>
+              <Button
+                type="button"
+                onClick={handleManualSave}
+                disabled={isLoading}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    {t('saving')}
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    {t('save')}
+                  </>
+                )}
               </Button>
             </div>
           </div>

@@ -130,33 +130,41 @@ export default function PurchaseOrders() {
                   </div>
                 </CardHeader>
                 <CardContent className="flex-grow">
-                  <ul className="text-sm space-y-2 text-slate-700">
-                    {po.items.slice(0, 3).map(item => (
-                      <li key={item.component_id} className="border-b border-slate-100 pb-2 last:border-0">
-                        <div className="flex justify-between items-start">
-                          <span className="flex-1 font-medium">{item.component_name}</span>
-                          <div className="text-right ml-2">
-                            <div className="font-mono text-xs">{item.quantity_ordered} {t('units')}</div>
-                            {item.total_price > 0 && (
-                              <div className="text-xs text-green-600 font-semibold">
-                                ${item.total_price.toFixed(2)}
+                  {!po.items || po.items.length === 0 ? (
+                    <div className="text-center py-4 text-slate-500">
+                      <p className="text-sm">{t('no_items_in_po')}</p>
+                    </div>
+                  ) : (
+                    <>
+                      <ul className="text-sm space-y-2 text-slate-700">
+                        {po.items.slice(0, 3).map(item => (
+                          <li key={item.component_sku || item.component_id} className="border-b border-slate-100 pb-2 last:border-0">
+                            <div className="flex justify-between items-start">
+                              <span className="flex-1 font-medium">{item.component_sku || item.component_name}</span>
+                              <div className="text-right ml-2">
+                                <div className="font-mono text-xs">{item.quantity_ordered || 0} {t('units')}</div>
+                                {item.total_price > 0 && (
+                                  <div className="text-xs text-green-600 font-semibold">
+                                    ${item.total_price.toFixed(2)}
+                                  </div>
+                                )}
                               </div>
+                            </div>
+                            {item.batch_info && (
+                              <p className="text-xs text-slate-500 mt-1 font-mono bg-slate-50 px-2 py-1 rounded inline-block">
+                                {t('batch_info')}: {item.batch_info}
+                              </p>
                             )}
-                          </div>
-                        </div>
-                        {item.batch_info && (
-                          <p className="text-xs text-slate-500 mt-1 font-mono bg-slate-50 px-2 py-1 rounded inline-block">
-                            {t('batch_info')}: {item.batch_info}
-                          </p>
-                        )}
-                      </li>
-                    ))}
-                    {po.items.length > 3 && (
-                      <li className="text-xs text-slate-500 text-center pt-1">
-                        ... {t('and')} {po.items.length - 3} {t('more_items')}
-                      </li>
-                    )}
-                  </ul>
+                          </li>
+                        ))}
+                      </ul>
+                      {po.items.length > 3 && (
+                        <p className="text-xs text-slate-500 text-center pt-2">
+                          ... {t('and')} {po.items.length - 3} {t('more_items')}
+                        </p>
+                      )}
+                    </>
+                  )}
                   
                   {poTotal > 0 && (
                     <div className="mt-3 pt-3 border-t border-slate-200">

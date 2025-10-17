@@ -34,7 +34,7 @@ export default function Dashboard() {
     setIsLoading(true);
     try {
       const [components, dinosaurs, sales] = await Promise.all([
-        Component.list('-created_date', 100),
+        Component.list('component_sku', 100),
         Dinosaur.list('-created_date', 100),
         Sale.list('-created_date', 100)
       ]);
@@ -45,7 +45,7 @@ export default function Dashboard() {
       const filteredSales = filterByWarehouse(sales);
 
       const availableDinos = filteredDinosaurs.filter(d => d.status === 'available').length;
-      const lowStock = filteredComponents.filter(c => c.quantity < 10).length;
+      const lowStock = 0;
       const recentSales = filteredSales.filter(s => {
         const saleDate = new Date(s.created_date);
         const weekAgo = new Date();
@@ -251,19 +251,21 @@ export default function Dashboard() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {recentItems.components.filter(c => c.quantity < 10).slice(0, 5).map((component) => (
-                      <div key={component.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-red-50 transition-colors">
-                        <div className="w-10 h-10 bg-gradient-to-r from-red-100 to-red-200 rounded-lg flex items-center justify-center">
-                          <AlertTriangle className="w-5 h-5 text-red-600" />
+                    {recentItems.components.slice(0, 5).map((component) => (
+                      <div key={component.component_sku || component.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-blue-50 transition-colors">
+                        <div className="w-10 h-10 bg-gradient-to-r from-blue-100 to-blue-200 rounded-lg flex items-center justify-center">
+                          <Package className="w-5 h-5 text-blue-600" />
                         </div>
                         <div className="flex-1">
-                          <p className="font-medium text-slate-800">{component.name}</p>
-                          <p className="text-sm text-slate-500">Stock: {component.quantity}</p>
+                          <p className="font-mono font-medium text-slate-800">{component.component_sku}</p>
+                          {component.component_description && (
+                            <p className="text-sm text-slate-500">{component.component_description}</p>
+                          )}
                         </div>
                       </div>
                     ))}
-                    {recentItems.components.filter(c => c.quantity < 10).length === 0 && (
-                      <p className="text-slate-500 text-center py-8">{t('all_components_sufficient_stock')}</p>
+                    {recentItems.components.length === 0 && (
+                      <p className="text-slate-500 text-center py-8">{t('no_components_registered')}</p>
                     )}
                   </div>
                 )}

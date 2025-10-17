@@ -329,7 +329,13 @@ export default function Receiving() {
                   })}
                 </div>
 
-                <div className="border-t pt-4">
+                <div className="border-t pt-4 space-y-3">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p className="text-sm text-blue-800">
+                      <strong>ℹ️ Nota:</strong> Al confirmar el receiving, las cantidades se agregarán automáticamente al stock de cada componente.
+                    </p>
+                  </div>
+
                   <Button
                     onClick={handleReceiveItems}
                     disabled={isReceiving || Object.values(receivingData).every(v => v === 0)}

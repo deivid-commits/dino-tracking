@@ -58,6 +58,7 @@ function App() {
         <LanguageProvider>
           <WarehouseProvider>
             <Pages />
+            <Toaster />
           </WarehouseProvider>
         </LanguageProvider>
       </BrowserRouter>

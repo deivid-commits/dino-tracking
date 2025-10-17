@@ -19,89 +19,248 @@ const getCurrentLanguage = () => {
   return localStorage.getItem('dinotrack-language') || 'es';
 };
 
-// 🔥 COMPONENT INVENTORY VIEW - Aggregated from PO Items by SKU
-// Shows components inventory by SKU with quantities from PO items
+/* Detect toy_components column names dynamically (cached) */
+let __bomColumnsCache = null;
+async function __getBomColumns() {
+  if (__bomColumnsCache) return __bomColumnsCache;
+  try {
+    const { data } = await supabase.from('toy_components').select('*').limit(1);
+    const keys = Array.isArray(data) && data[0] ? Object.keys(data[0]) : [];
+    const skuCandidates = ['component_sku', 'sku', 'code', 'name'];
+    const descCandidates = ['component_description', 'description', 'desc'];
+    const skuKey = skuCandidates.find(k => keys.includes(k)) || null;
+    const descKey = descCandidates.find(k => keys.includes(k)) || null;
+    __bomColumnsCache = { skuKey, descKey };
+    return __bomColumnsCache;
+  } catch (e) {
+    console.warn('Could not detect toy_components columns. Will use fallbacks.', e);
+    __bomColumnsCache = { skuKey: null, descKey: null };
+    return __bomColumnsCache;
+  }
+};
+
+/* 🔥 COMPONENTS CATALOG - Simple SKU catalog for BOM versions
+   Components are just SKU + optional Description, stored in toy_components.
+   BOM recipe now lives inside bom_versions.bom_recipe (JSONB). */
 const ComponentInventoryEntity = {
   async list(orderBy = 'component_sku') {
     try {
-      let query = supabase
-        .from('purchase_order_items')
-        .select(`
-          *,
-          purchase_orders!inner(po_number, supplier_name)
-        `);
+      const { data, error } = await supabase
+        .from('toy_components')
+        .select('*');
 
-      // Apply ordering based on the parameter
-      if (orderBy === 'component_sku') {
-        query = query.order('component_sku');
-      } else if (orderBy === '-created_at') {
-        query = query.order('created_at', { ascending: false });
-      }
-
-      const { data, error } = await query;
       if (error) throw error;
 
-      // 🔥 GROUP BY COMPONENT SKU - Aggregate quantities
-      const skuMap = {};
-      (data || []).forEach(item => {
-        const sku = item.component_sku;
-        if (!skuMap[sku]) {
-          skuMap[sku] = {
-            component_sku: sku,
-            component_description: item.component_description,
-            supplier_name: item.purchase_orders?.supplier_name || '',
-            total_quantity: 0,
-            unit_cost: item.unit_cost,
-            currency: item.currency || 'USD',
-            purchase_orders: [],
-            last_updated: item.created_at,
-            has_sku_association: item.has_sku_association || false // Flag for linked SKUs
-          };
-        }
-        skuMap[sku].total_quantity += item.quantity_ordered || 0;
-        skuMap[sku].purchase_orders.push({
-          po_number: item.purchase_orders?.po_number,
-          quantity: item.quantity_ordered,
-          received_date: item.created_at
-        });
-        // Update last_updated to most recent
-        if (item.created_at > skuMap[sku].last_updated) {
-          skuMap[sku].last_updated = item.created_at;
-        }
-      });
+      // Normalize to ensure UI gets the expected fields regardless of column names
+      const normalized = (data || []).map(row => ({
+        ...row,
+        component_sku: row.component_sku || row.sku || row.SKU || row.code,
+        component_description: row.component_description || row.description || row.desc || ''
+      }));
 
-      return Object.values(skuMap);
+      // Sort client-side to avoid DB errors when column doesn't exist
+      if (orderBy === 'component_sku') {
+        normalized.sort((a, b) => (a.component_sku || '').localeCompare(b.component_sku || ''));
+      }
+
+      return normalized;
     } catch (error) {
-      console.error('Error fetching component inventory:', error);
+      console.error('Error fetching components:', error);
       return [];
     }
   },
 
   async getBySKU(sku) {
     try {
-      const allItems = await this.list();
-      return allItems.find(item => item.component_sku === sku) || null;
+      // Try component_sku first
+      let { data, error } = await supabase
+        .from('toy_components')
+        .select('*')
+        .eq('component_sku', sku)
+        .limit(1);
+
+      if ((error && error.code === '42703') || !data || data.length === 0) {
+        // Fallback to sku column
+        const res = await supabase
+          .from('toy_components')
+          .select('*')
+          .eq('sku', sku)
+          .limit(1);
+        data = res.data;
+        error = res.error;
+      }
+
+      if (error) throw error;
+      if (!data || data.length === 0) return null;
+
+      const row = data[0];
+      return {
+        ...row,
+        component_sku: row.component_sku || row.sku,
+        component_description: row.component_description || row.description
+      };
     } catch (error) {
       console.error('Error fetching component by SKU:', error);
       return null;
     }
   },
 
-  // Get all unique SKUs across PO items
+  // Get all unique SKUs
   async getUniqueSKUs() {
     try {
-      const { data, error } = await supabase
-        .from('purchase_order_items')
-        .select('component_sku')
-        .not('component_sku', 'is', null);
-
-      if (error) throw error;
-
-      const uniqueSKUs = [...new Set(data.map(item => item.component_sku))];
-      return uniqueSKUs;
+      const items = await this.list('component_sku');
+      return [...new Set(items.map(i => i.component_sku).filter(Boolean))];
     } catch (error) {
       console.error('Error fetching unique SKUs:', error);
       return [];
+    }
+  },
+
+  // 🔥 Create a new component (just SKU + description)
+  async create(componentData) {
+    // Prefer detected column names when possible
+    const { skuKey, descKey } = await __getBomColumns();
+    const preferred = (skuKey && descKey)
+      ? [{ [skuKey]: componentData.component_sku, [descKey]: componentData.component_description }]
+      : [];
+
+    // Try multiple possible column mappings to be resilient to schema differences
+    const base = { component_sku: componentData.component_sku };
+    const hasDesc = !!(componentData.component_description && String(componentData.component_description).trim());
+    const candidates = [
+      ...preferred,
+      // Canonical schema (our migration): component_sku + description (optional)
+      hasDesc ? { ...base, description: componentData.component_description } : base,
+      // Fallback if some env used component_description instead of description
+      hasDesc ? { ...base, component_description: componentData.component_description } : base
+      // Note: We intentionally avoid alias columns (sku/code/name) to prevent schema cache errors
+    ];
+
+    let lastError = null;
+
+    // First pass: insert + select single (preferred)
+    for (const payload of candidates) {
+      const { data, error } = await supabase
+        .from('toy_components')
+        .insert([payload])
+        .select()
+        .single();
+
+      if (!error && data) {
+        return {
+          ...data,
+          component_sku: data.component_sku || data.sku || data.code || data.name,
+          component_description: data.component_description || data.description || data.desc || ''
+        };
+      }
+      lastError = error;
+    }
+
+    // Second pass: insert without select, then fetch
+    for (const payload of candidates) {
+      const { error } = await supabase
+        .from('toy_components')
+        .insert([payload]);
+
+      if (!error) {
+        // Try to fetch back the record by SKU using our normalized getter
+        const fetched = await ComponentInventoryEntity.getBySKU(componentData.component_sku);
+        if (fetched) return fetched;
+        // As a final fallback, return normalized input
+        return {
+          component_sku: componentData.component_sku,
+          component_description: componentData.component_description
+        };
+      }
+      lastError = error;
+    }
+
+    // If all attempts failed, throw the last supabase error for visibility
+    console.error('Error creating component:', lastError);
+    throw lastError || new Error('Failed to insert into toy_components');
+  },
+
+  // Update component description
+  async update(sku, updates) {
+    try {
+      // Intento A: actualizar component_description filtrando por component_sku
+      const updateA = {};
+      if (Object.prototype.hasOwnProperty.call(updates, 'component_description')) {
+        updateA.component_description = updates.component_description;
+      }
+
+      let { data, error } = await supabase
+          .from('toy_components')
+        .update(updateA)
+        .eq('component_sku', sku)
+        .select()
+        .single();
+
+      // Intento B: si no existe component_description, usar description filtrando por component_sku
+      if (error && (error.code === 'PGRST204' || error.code === '42703')) {
+        const updateB = {};
+        if (Object.prototype.hasOwnProperty.call(updates, 'component_description')) {
+          updateB.description = updates.component_description;
+        }
+        const resB = await supabase
+        .from('toy_components')
+          .update(updateB)
+          .eq('component_sku', sku)
+          .select()
+          .single();
+        data = resB.data;
+        error = resB.error;
+      }
+
+      // Intento C: fallback final, usar description filtrando por sku
+      if (error && (error.code === 'PGRST204' || error.code === '42703')) {
+        const updateC = {};
+        if (Object.prototype.hasOwnProperty.call(updates, 'component_description')) {
+          updateC.description = updates.component_description;
+        }
+        const resC = await supabase
+          .from('toy_components')
+          .update(updateC)
+          .eq('sku', sku)
+          .select()
+          .single();
+        data = resC.data;
+        error = resC.error;
+      }
+
+      if (error) throw error;
+      return data && {
+        ...data,
+        component_sku: data.component_sku || data.sku,
+        component_description: data.component_description || data.description
+      };
+    } catch (error) {
+      console.error('Error updating component:', error);
+      throw error;
+    }
+  },
+
+  // Delete component
+  async delete(sku) {
+    try {
+      let { error } = await supabase
+        .from('toy_components')
+        .delete()
+        .eq('component_sku', sku);
+
+      if (error && (error.code === 'PGRST204' || error.code === '42703')) {
+        const res = await supabase
+          .from('toy_components')
+          .delete()
+          .eq('sku', sku);
+        error = res.error;
+      }
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error deleting component:', error);
+      throw error;
     }
   }
 };
@@ -219,12 +378,13 @@ const PurchaseOrderItemEntity = {
   }
 };
 
-// Device Entity - Complete device management
+// Device Entity - Maps to voice_box_assembly table
 const DeviceEntity = {
   async list(orderBy) {
     try {
+      // First try without JOIN to see if the table exists and works
       let query = supabase
-        .from('devices')
+        .from('voice_box_assembly')
         .select('*');
 
       // Apply ordering
@@ -235,10 +395,40 @@ const DeviceEntity = {
       }
 
       const { data, error } = await query;
-      if (error) throw error;
-      return data || [];
+      if (error) {
+        console.error('❌ Supabase error:', error);
+        throw error;
+      }
+
+      console.log('📋 Raw device data from DB (no JOIN):', data);
+
+      // Transform data to match expected device format
+      const transformedData = (data || []).map(item => ({
+        id: item.id,
+        device_id: item.test_results?.device_id || item.id, // Get device_id from test_results JSON
+        mac_address: item.mac_address || '', // Now stores the actual MAC address as text
+        version_id: item.bom_version_id,
+        warehouse_id: item.warehouse_id || null, // Get warehouse_id from table column (null if not set)
+        status: item.final_qc_status || 'ready',
+        assembly_date: item.assembly_date,
+        assembled_by_operator: item.assembled_by,
+        notes: item.test_results?.notes || '',
+        components_used: [], // Not directly available, would need separate query
+        // Additional fields from voice_box_assembly
+        toy_id: item.toy_id,
+        qc_result: item.qc_result,
+        firmware_version: item.firmware_version,
+        calibration_passed: item.calibration_passed,
+        // Version info - will be populated separately if needed
+        version_name: null,
+        model_name: null
+      }));
+
+      console.log('📋 Transformed device data:', transformedData);
+      return transformedData;
     } catch (error) {
-      console.error('Error fetching devices:', error);
+      console.error('❌ Error fetching devices:', error);
+      console.error('❌ Error details:', error.message, error.details, error.hint);
       return [];
     }
   },
@@ -248,24 +438,49 @@ const DeviceEntity = {
       // Get current operator
       const operator = getCurrentOperator();
 
+      // Create assembly record directly - toy_id is now nullable
       const { data, error } = await supabase
-        .from('devices')
+        .from('voice_box_assembly')
         .insert([{
-          ...deviceData,
+          toy_id: null, // No toy relationship - devices exist independently
+          bom_version_id: deviceData.version_id,
+          warehouse_id: deviceData.warehouse_id, // Store warehouse_id directly in the table
           assembly_date: new Date().toISOString(),
-          assembled_by_operator: operator,
-          status: deviceData.status || 'ready'
+          assembled_by: operator,
+          final_qc_status: deviceData.status || 'ready',
+          mac_address: deviceData.mac_address || null, // Store the actual MAC address as text
+          test_results: {
+            device_id: deviceData.device_id,
+            notes: deviceData.notes || '',
+            mac_address: deviceData.mac_address,
+            created_by: operator,
+            created_at: new Date().toISOString()
+          }
         }])
         .select()
         .single();
 
       if (error) throw error;
 
-      // NOTE: Components usage disabled until schema full migration
-      // TODO: Update to use PURCHASE_ORDER_ITEMS instead
-      console.log('⚠️ Device components usage skipped - needs schema migration');
+      console.log('✅ Device created successfully:', data);
 
-      return data;
+      // Transform response to match expected format
+      return {
+        id: data.id,
+        device_id: data.test_results.device_id, // Get from test_results
+        mac_address: data.mac_address || '', // Return the actual MAC address
+        version_id: data.bom_version_id,
+        warehouse_id: data.warehouse_id || 'default', // Get warehouse from table column
+        status: data.final_qc_status || 'ready',
+        assembly_date: data.assembly_date,
+        assembled_by_operator: data.assembled_by,
+        notes: data.test_results.notes || '',
+        components_used: [],
+        toy_id: null, // No toy relationship
+        qc_result: data.qc_result,
+        firmware_version: data.firmware_version,
+        calibration_passed: data.calibration_passed
+      };
     } catch (error) {
       console.error('Error creating device:', error);
       throw error;
@@ -275,7 +490,7 @@ const DeviceEntity = {
   async delete(id) {
     try {
       const { error } = await supabase
-        .from('devices')
+        .from('voice_box_assembly')
         .delete()
         .eq('id', id);
 
@@ -419,17 +634,25 @@ const BomVersionsEntity = {
 
   async create(versionData) {
     try {
+      // Remove bom_recipe from the main payload and handle it separately
+      const { bom_recipe, ...mainData } = versionData;
+
       const { data, error } = await supabase
         .from('bom_versions')
-        .insert([{
-          ...versionData,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }])
+        .insert([mainData])
         .select()
         .single();
 
       if (error) throw error;
+
+      // If bom_recipe was provided, update it separately
+      if (bom_recipe) {
+        await supabase
+          .from('bom_versions')
+          .update({ bom_recipe })
+          .eq('id', data.id);
+      }
+
       return data;
     } catch (error) {
       console.error('Error creating BOM version:', error);
@@ -439,20 +662,46 @@ const BomVersionsEntity = {
 
   async update(bomVersionId, updates) {
     try {
+      // Handle bom_recipe separately to avoid column selection issues
+      const { bom_recipe, ...otherUpdates } = updates;
+
+      let updateData = otherUpdates;
+
       const { data, error } = await supabase
         .from('bom_versions')
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString()
-        })
-        .eq('bom_version_id', bomVersionId)
+        .update(updateData)
+        .eq('id', bomVersionId) // Use 'id' not 'bom_version_id'
         .select()
         .single();
 
       if (error) throw error;
+
+      // If bom_recipe was provided, update it separately
+      if (bom_recipe !== undefined) {
+        await supabase
+          .from('bom_versions')
+          .update({ bom_recipe })
+          .eq('id', bomVersionId);
+      }
+
       return data;
     } catch (error) {
       console.error('Error updating BOM version:', error);
+      throw error;
+    }
+  },
+
+  async delete(bomVersionId) {
+    try {
+      const { error } = await supabase
+        .from('bom_versions')
+        .delete()
+        .eq('id', bomVersionId);
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error deleting BOM version:', error);
       throw error;
     }
   }
